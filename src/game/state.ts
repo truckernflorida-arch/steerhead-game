@@ -1,67 +1,86 @@
 /**
  * GameState — Lesson 1 default = S01 Dirt Yard / light_fill (dirt).
  */
-import type { SchoolLevel } from './levels/jobCard'
+import type { JobCard } from './levels/jobCard'
 import { LESSON1_LEVEL_ID } from './levels/loadSchool'
 import { LESSON1_SOIL_ID, type SoilAliasId } from './env/soil'
 import type { CauseId } from './ticksnap/types'
+import {
+  planFromLevel,
+  type BorePoint,
+  type ProfilePlan,
+  FT_TO_M,
+} from './bore/profile'
 
 export type GamePhase = 'brief' | 'mix' | 'pilot' | 'ream' | 'pull' | 'debrief'
 
+export type GameOutcome =
+  | 'none'
+  | 'daylight'
+  | 'taught_fail'
+  | 'wrong_daylight'
+
 export type GameState = {
   levelId: string
-  /** Job card metadata from school JSON (S01 default) */
-  level: SchoolLevel | null
+  level: JobCard | null
   phase: GamePhase
-  /** Sim time seconds */
   t: number
-  /** Soil school id (light_fill for L1) */
   soilId: SoilAliasId
-  /** Head depth along bore path (meters) */
+  /** Path length along hole (meters) */
   headDepth_m: number
-  /** Pitch degrees (+ dive with walkBias) */
+  /** Horizontal station (ft) */
+  station_ft: number
+  /** Cover depth below grade (ft), positive down */
+  coverDepth_ft: number
+  /** Pitch degrees (+ dive) */
   pitchDeg: number
-  /** Instantaneous ROP m/s */
   rop_m_s: number
-  /** Bore progress 0–1 */
   boreProgress: number
-  /** Target bore length meters (from job card ft) */
   boreLength_m: number
-  /** Accumulated panic-dogleg events this run */
+  profile: ProfilePlan
+  path: BorePoint[]
+  clockAngleDeg: number
   panicDoglegCount: number
-  /** Soft warn before taught-fail */
   panicDoglegWarn: boolean
-  /** Active taught-fail cause id, if any */
   taughtFail?: CauseId
-  /** Locked mud GPM proxy 0..1 (1 = healthy; kill → secondary fails) */
   gpmNorm: number
-  /** Sticky walk noise phase */
   walkPhase: number
-  /** Sustained over-steer timer (s) for panic dogleg */
   oversteerTimer: number
+  gradeHoldGood: number
+  gradeHoldSamples: number
+  outcome: GameOutcome
+  ticketScore: number
 }
 
-const FT_TO_M = 0.3048
-
-export function createGameState(level: SchoolLevel | null = null): GameState {
+export function createGameState(level: JobCard | null = null): GameState {
   const lengthFt = level?.bore?.length_ft ?? 120
+  const profile = planFromLevel(level ?? {})
   return {
     levelId: level?.id ?? LESSON1_LEVEL_ID,
     level,
-    phase: 'pilot',
+    phase: 'brief',
     t: 0,
     soilId: LESSON1_SOIL_ID,
     headDepth_m: 0,
-    pitchDeg: 0,
+    station_ft: 0,
+    coverDepth_ft: 0.8,
+    pitchDeg: 14,
     rop_m_s: 0,
     boreProgress: 0,
     boreLength_m: lengthFt * FT_TO_M,
+    profile,
+    path: [{ sta_ft: 0, depth_ft: 0.8 }],
+    clockAngleDeg: 180,
     panicDoglegCount: 0,
     panicDoglegWarn: false,
     taughtFail: undefined,
     gpmNorm: 1,
     walkPhase: 0,
     oversteerTimer: 0,
+    gradeHoldGood: 0,
+    gradeHoldSamples: 0,
+    outcome: 'none',
+    ticketScore: 0,
   }
 }
 

@@ -1,5 +1,6 @@
 /**
- * Play route — Lesson 1 = S01 Dirt Yard with SOIL_FOUR dirt / light_fill feel.
+ * Play route — Lesson 1 = S01 Dirt Yard (light_fill / dirt).
+ * Clock + locator + profile bore + brief→push→daylight/TF_PANIC_DOGLEG debrief.
  */
 import { createFileRoute } from '@tanstack/react-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -12,11 +13,20 @@ import {
 import { loadLesson1 } from '#/game/levels'
 import { getLesson1Soil, LESSON1_SOIL_ID } from '#/game/env/soil'
 import { createTouchSpeedControl, sampleTouchSpeed } from '#/game/input/touch'
-import { sampleKeyboard, createEmptyInput } from '#/game/input'
-import { createGameState, type GameState } from '#/game/state'
+import {
+  sampleKeyboard,
+  createEmptyInput,
+  createClockControl,
+  sampleClock,
+  normalizeAngleDeg,
+} from '#/game/input'
+import { createGameState, resetGameState, type GameState } from '#/game/state'
 import { update } from '#/game/update'
 import { render } from '#/game/render'
 import { TrainerHud } from '#/ui/TrainerHud'
+import { ClockFace } from '#/ui/ClockFace'
+import { LocatorPanel } from '#/ui/LocatorPanel'
+import { FlowOverlay } from '#/ui/FlowOverlay'
 
 export const Route = createFileRoute('/play')({ component: PlayPage })
 
@@ -25,19 +35,26 @@ function PlayPage() {
   const soil = useMemo(() => getLesson1Soil(), [])
   const emitter = useRef(createPhysicsEmitter())
   const touch = useRef(createTouchSpeedControl(0.35))
+  const clock = useRef(createClockControl(180))
   const keysRef = useRef<Record<string, boolean>>({})
+  const prevKeysRef = useRef<Record<string, boolean>>({})
+  const startPushRef = useRef(false)
+  const retryRef = useRef(false)
   const stateRef = useRef<GameState>(createGameState(level))
   const [snap, setSnap] = useState<TickSnap>(() =>
     emitFromGameState(emitter.current, stateRef.current),
   )
   const [detailOpen, setDetailOpen] = useState(false)
   const [touchSpeed, setTouchSpeed] = useState(0.35)
+  const [clockAngle, setClockAngle] = useState(180)
   const [status, setStatus] = useState('')
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
   useEffect(() => {
     stateRef.current = createGameState(level)
     emitter.current = createPhysicsEmitter()
+    clock.current.setAngleDeg(180)
+    setClockAngle(180)
   }, [level])
 
   useEffect(() => {
@@ -62,22 +79,45 @@ function PlayPage() {
       const dt = last ? Math.min(0.05, (now - last) / 1000) : 0
       last = now
 
+      const keys = keysRef.current
+      const prev = prevKeysRef.current
+      const edge = (k: string) => keys[k] && !prev[k]
+
+      // Hour snaps + Q/E nudge (edge)
+      if (edge('q') || edge('Q')) clock.current.nudge(-15)
+      if (edge('e') || edge('E')) clock.current.nudge(15)
+      for (let h = 1; h <= 9; h++) {
+        if (edge(String(h))) clock.current.setHour(h)
+      }
+      if (edge('0')) clock.current.setHour(10)
+      if (edge('-') || edge('_')) clock.current.setHour(11)
+      if (edge('=') || edge('+')) clock.current.setHour(12)
+
       let input = createEmptyInput()
-      input = sampleKeyboard(input, keysRef.current)
+      input = sampleKeyboard(input, keys)
+      const kbSteer = input.steer
+      input = sampleClock(input, clock.current.angleDeg, kbSteer)
       const touchSample = sampleTouchSpeed(touch.current)
       input = {
         ...input,
         touchSpeed: touchSample.touchSpeed,
         thrust: Math.max(input.thrust, touchSample.thrust),
-        keys: { ...keysRef.current },
+        keys: { ...keys },
+        startPush: startPushRef.current,
+        retry: retryRef.current,
       }
+      startPushRef.current = false
+      retryRef.current = false
+      prevKeysRef.current = { ...keys }
 
       const next = update(stateRef.current, input, dt)
       stateRef.current = next
+      setClockAngle(next.clockAngleDeg)
+      clock.current.setAngleDeg(next.clockAngleDeg)
       const nextSnap = emitFromGameState(emitter.current, next)
       setSnap(nextSnap)
       setStatus(
-        `depth ${next.headDepth_m.toFixed(2)} m · pitch ${next.pitchDeg.toFixed(2)}° · ROP ${next.rop_m_s.toFixed(3)} m/s`,
+        `sta ${next.station_ft.toFixed(0)} ft · depth ${next.coverDepth_ft.toFixed(1)} ft · pitch ${next.pitchDeg.toFixed(1)}° · ROP ${next.rop_m_s.toFixed(3)} m/s`,
       )
 
       const c = canvasRef.current
@@ -92,6 +132,26 @@ function PlayPage() {
   function onVerb(id: VerbId) {
     console.info('[verb]', id)
   }
+
+  function onClockAngle(deg: number) {
+    const a = normalizeAngleDeg(deg)
+    clock.current.setAngleDeg(a)
+    setClockAngle(a)
+  }
+
+  function onStartPush() {
+    startPushRef.current = true
+  }
+
+  function onRetry() {
+    retryRef.current = true
+    stateRef.current = resetGameState(stateRef.current)
+    emitter.current = createPhysicsEmitter()
+    clock.current.setAngleDeg(180)
+    setClockAngle(180)
+  }
+
+  const pushing = snap.phase === 'pilot'
 
   return (
     <main className="play-shell">
@@ -111,13 +171,22 @@ function PlayPage() {
         {status ? <p className="play-sub">{status}</p> : null}
       </header>
 
+      <div className="play-top">
+        <LocatorPanel snap={snap} />
+        <ClockFace
+          angleDeg={clockAngle}
+          onAngleDeg={onClockAngle}
+          disabled={snap.phase === 'debrief'}
+        />
+      </div>
+
       <div className="play-layout">
         <canvas
           ref={canvasRef}
           className="play-canvas"
-          width={640}
-          height={360}
-          aria-label="Bore view — dirt feel"
+          width={720}
+          height={400}
+          aria-label="Profile bore view — entry to daylight"
         />
         <TrainerHud
           snap={snap}
@@ -139,6 +208,7 @@ function PlayPage() {
           max={1}
           step={0.01}
           value={touchSpeed}
+          disabled={!pushing && snap.phase !== 'brief'}
           onChange={(e) => {
             const v = Number(e.target.value)
             touch.current.setSpeed(v)
@@ -146,6 +216,13 @@ function PlayPage() {
           }}
         />
       </div>
+
+      <FlowOverlay
+        snap={snap}
+        level={level}
+        onStartPush={onStartPush}
+        onRetry={onRetry}
+      />
     </main>
   )
 }

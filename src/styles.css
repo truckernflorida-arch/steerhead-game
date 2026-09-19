@@ -196,3 +196,322 @@ main.home .note {
 code {
   font-size: 0.9em;
 }
+
+/* --- Lesson 1: locator + clock + flow --- */
+.play-top {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  align-items: stretch;
+}
+
+.locator-panel {
+  flex: 1 1 280px;
+  background: #12181f;
+  border: 1px solid #2c3640;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.locator-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  color: #8a9aa6;
+}
+
+.locator-target {
+  color: #5ec8c8;
+}
+
+.locator-map {
+  position: relative;
+  height: 88px;
+  background: #0a1016;
+  border-radius: 6px;
+  border: 1px solid #24303a;
+  overflow: hidden;
+}
+
+.locator-path {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  top: 48%;
+  height: 2px;
+  background: repeating-linear-gradient(
+    90deg,
+    #c5d4de 0 6px,
+    transparent 6px 12px
+  );
+}
+
+.locator-head-dot {
+  position: absolute;
+  top: 48%;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  border-radius: 50%;
+  background: #5ec8c8;
+  box-shadow: 0 0 8px #5ec8c8;
+}
+
+.apwa-mark {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  margin: -9px 0 0 -9px;
+  border-radius: 3px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #0a1016;
+}
+
+.apwa-yellow {
+  background: #e6c84a;
+}
+.apwa-blue {
+  background: #4a9fe6;
+}
+
+.locator-readouts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.4rem;
+}
+
+.locator-readout {
+  background: #0f1316;
+  border-radius: 4px;
+  padding: 0.3rem 0.4rem;
+}
+
+.lr-label {
+  display: block;
+  font-size: 0.6rem;
+  color: #8a9aa6;
+  letter-spacing: 0.05em;
+}
+
+.lr-value {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.lr-value.cyan {
+  color: #5ec8c8;
+}
+
+.signal-bars {
+  display: inline-flex;
+  gap: 2px;
+  align-items: flex-end;
+  height: 1.1rem;
+}
+
+.signal-bars i {
+  display: block;
+  width: 4px;
+  background: #2c3640;
+  border-radius: 1px;
+}
+
+.signal-bars i:nth-child(1) {
+  height: 20%;
+}
+.signal-bars i:nth-child(2) {
+  height: 40%;
+}
+.signal-bars i:nth-child(3) {
+  height: 60%;
+}
+.signal-bars i:nth-child(4) {
+  height: 80%;
+}
+.signal-bars i:nth-child(5) {
+  height: 100%;
+}
+
+.signal-bars i.on {
+  background: #5ec8c8;
+}
+
+.apwa-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.apwa-chip {
+  font-size: 0.7rem;
+  padding: 0.15rem 0.4rem;
+  border-radius: 999px;
+  font-weight: 600;
+}
+
+.apwa-chip.apwa-yellow {
+  background: #3a3210;
+  color: #e6c84a;
+}
+.apwa-chip.apwa-blue {
+  background: #10283a;
+  color: #4a9fe6;
+}
+
+.clock-face-wrap {
+  flex: 0 0 auto;
+  background: #12181f;
+  border: 1px solid #2c3640;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  text-align: center;
+  touch-action: none;
+}
+
+.clock-face {
+  display: block;
+  margin: 0 auto;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+
+.clock-face:active {
+  cursor: grabbing;
+}
+
+.clock-ring {
+  fill: none;
+  stroke: #3d4a54;
+  stroke-width: 2;
+}
+
+.clock-dial {
+  fill: #0a1016;
+  stroke: #2c3640;
+  stroke-width: 1;
+}
+
+.clock-num {
+  fill: #9fb3c3;
+  font-size: 14px;
+  font-family: system-ui, sans-serif;
+  font-weight: 600;
+}
+
+.clock-tick {
+  stroke: #3d4a54;
+  stroke-width: 2;
+}
+
+.clock-hand {
+  stroke: #5ec8c8;
+  stroke-width: 5;
+  filter: drop-shadow(0 0 4px #5ec8c8);
+}
+
+.clock-hub {
+  fill: #5ec8c8;
+}
+
+.clock-caption {
+  margin: 0.4rem 0 0;
+  font-size: 0.75rem;
+  color: #c5d4de;
+  letter-spacing: 0.04em;
+}
+
+.clock-hint {
+  margin: 0.2rem 0 0;
+  font-size: 0.65rem;
+  color: #6b7c88;
+}
+
+.flow-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 12, 16, 0.78);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 40;
+  padding: 1rem;
+}
+
+.flow-card {
+  width: min(28rem, 100%);
+  background: #161b20;
+  border: 1px solid #3d4a54;
+  border-radius: 10px;
+  padding: 1.25rem 1.5rem;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+}
+
+.flow-card h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.25rem;
+  color: #5ec8c8;
+}
+
+.flow-lesson {
+  color: #8a9aa6;
+  font-size: 0.9rem;
+  margin: 0 0 0.75rem;
+}
+
+.flow-list,
+.flow-steps {
+  margin: 0 0 1rem;
+  padding-left: 1.2rem;
+  color: #c5d4de;
+  font-size: 0.9rem;
+}
+
+.flow-list.compact {
+  font-size: 0.8rem;
+  color: #8a9aa6;
+}
+
+.flow-cause {
+  color: #e07070;
+  font-weight: 600;
+}
+
+.flow-score {
+  color: #e6c84a;
+}
+
+.flow-primary {
+  appearance: none;
+  border: none;
+  background: #5ec8c8;
+  color: #0a1016;
+  font-weight: 700;
+  border-radius: 6px;
+  padding: 0.55rem 1.1rem;
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+
+.flow-primary:hover {
+  filter: brightness(1.08);
+}
+
+@media (max-width: 720px) {
+  .locator-readouts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .play-canvas {
+    max-width: 100%;
+  }
+}

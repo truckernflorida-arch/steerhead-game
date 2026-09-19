@@ -1,13 +1,10 @@
 /**
- * Mobile-friendly touch speed-control stub (placeholder API).
- * UI may bind a slider / drag strip → setSpeed(0..1); game loop reads sampleTouchSpeed.
- * TODO: real gesture mapping when mobile playtest starts.
+ * Mobile-friendly touch speed-control stub.
+ * UI binds slider → setSpeed(0..1); loop reads sampleTouchSpeed.
  */
 export type TouchSpeedControl = {
-  /** Normalized speed 0..1 */
   speed: number
   setSpeed: (v: number) => void
-  /** Optional: pointer/touch active */
   active: boolean
 }
 
@@ -33,7 +30,6 @@ export function sampleTouchSpeed(
 ): Pick<import('./index').InputFrame, 'touchSpeed' | 'thrust'> {
   return {
     touchSpeed: control.speed,
-    // Mirror into thrust for now — placeholder until Bot controls land
     thrust: control.speed,
   }
 }

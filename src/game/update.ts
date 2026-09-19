@@ -1,15 +1,21 @@
 /**
- * Lesson 1 update: dirt / light_fill feel only.
- * Thrust/ROP + steer clamp + mild walkBias; taught-fail TF_PANIC_DOGLEG.
- * No FC-01 / plant fails unless player kills GPM (secondary rails).
+ * Lesson 1 update: dirt / light_fill feel + profile path + daylight.
+ * Thrust/ROP + clock/keyboard steer + mild walkBias; taught-fail TF_PANIC_DOGLEG.
+ * Secondary TF_PACKED_HEAD / TF_FRAC_THIN only if player kills GPM.
  */
-import type { GamePhase, GameState } from './state'
+import type { GameOutcome, GamePhase, GameState } from './state'
 import type { InputFrame } from './input'
 import {
   clampSteerDeltaDeg,
   getLesson1Soil,
   LIGHT_FILL_TEACH,
 } from './env/soil'
+import {
+  isInHoldBand,
+  nearDaylight,
+  M_TO_FT,
+} from './bore/profile'
+import { scoreLesson1 } from './score/lesson1'
 
 function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t
@@ -19,37 +25,108 @@ function clamp01(v: number): number {
   return Math.min(1, Math.max(0, v))
 }
 
-/**
- * Pure update: (state, input, dt) → next.
- * Always uses unlocked dirt params — never sand/clay/rock gameplay.
- */
+function finalizeScore(state: GameState): number {
+  const gradeHold =
+    state.gradeHoldSamples > 0
+      ? state.gradeHoldGood / state.gradeHoldSamples
+      : 0
+  const mudBand = 1 // locked green on S01
+  const pressureVolumeBand = clamp01(state.gpmNorm)
+  const cleanAtPull = 0.8
+  const exitBullseye =
+    state.outcome === 'daylight'
+      ? clamp01(
+          1 -
+            Math.abs(state.coverDepth_ft) /
+              Math.max(0.5, state.profile.exitBullseye_m * M_TO_FT),
+        )
+      : 0
+  const scrapes = Math.min(0.15, state.panicDoglegCount * 0.05)
+  return scoreLesson1({
+    gradeHold,
+    mudBand,
+    pressureVolumeBand,
+    cleanAtPull,
+    exitBullseye,
+    pathScrapes: scrapes,
+  }).ticket
+}
+
 export function update(
   state: GameState,
   input: InputFrame,
   dt: number,
 ): GameState {
-  if (dt <= 0) return state
+  if (dt <= 0 && !input.startPush && !input.retry) return state
+
+  if (input.retry && state.phase === 'debrief') {
+    return {
+      ...state,
+      phase: 'brief',
+      t: 0,
+      headDepth_m: 0,
+      station_ft: 0,
+      coverDepth_ft: 0.8,
+      pitchDeg: 14,
+      rop_m_s: 0,
+      boreProgress: 0,
+      path: [{ sta_ft: 0, depth_ft: 0.8 }],
+      clockAngleDeg: input.clockAngleDeg || 180,
+      panicDoglegCount: 0,
+      panicDoglegWarn: false,
+      taughtFail: undefined,
+      gpmNorm: 1,
+      walkPhase: 0,
+      oversteerTimer: 0,
+      gradeHoldGood: 0,
+      gradeHoldSamples: 0,
+      outcome: 'none',
+      ticketScore: 0,
+    }
+  }
+
+  if (state.phase === 'brief') {
+    if (input.startPush) {
+      return {
+        ...state,
+        phase: 'pilot',
+        clockAngleDeg: input.clockAngleDeg || state.clockAngleDeg,
+      }
+    }
+    return {
+      ...state,
+      t: state.t + Math.max(dt, 0),
+      clockAngleDeg: input.clockAngleDeg || state.clockAngleDeg,
+      rop_m_s: 0,
+    }
+  }
+
   if (
     state.phase === 'debrief' ||
     state.taughtFail === 'TF_PANIC_DOGLEG' ||
     state.taughtFail === 'TF_PACKED_HEAD' ||
-    state.taughtFail === 'TF_FRAC_THIN'
+    state.taughtFail === 'TF_FRAC_THIN' ||
+    state.outcome === 'daylight' ||
+    state.outcome === 'wrong_daylight'
   ) {
-    return { ...state, t: state.t + dt, rop_m_s: 0 }
+    return {
+      ...state,
+      phase: 'debrief',
+      t: state.t + Math.max(dt, 0),
+      rop_m_s: 0,
+      clockAngleDeg: input.clockAngleDeg || state.clockAngleDeg,
+    }
   }
 
-  // CEO lock: L1 uses dirt/light_fill numbers only (unlocked)
+  if (dt <= 0) return state
+
   const soil = getLesson1Soil()
-  if (!soil.unlocked || soil.fourPack !== 'dirt') {
-    return state
-  }
+  if (!soil.unlocked || soil.fourPack !== 'dirt') return state
 
   const teach = LIGHT_FILL_TEACH
+  const clockAngleDeg = input.clockAngleDeg || state.clockAngleDeg
 
-  // Thrust: keyboard thrust or touch speed slider
   const thrust = clamp01(Math.max(input.thrust, input.touchSpeed))
-
-  // ROP: dirt ropRange_m_s at thrust 0.3–1.0; taper below 0.3
   const [ropLo, ropHi] = soil.ropRange_m_s
   let rop = 0
   if (thrust > 0.02) {
@@ -58,12 +135,9 @@ export function update(
     } else {
       rop = ropLo * (thrust / 0.3)
     }
-    // Published ropRange already encodes dirt thrustResponse (1.15) vs baseline
   }
 
   const ds = rop * dt
-
-  // Steer: authority scales wanted bend; hard clamp to maxSteerDegPerM * ds
   const steerInput = Math.max(-1, Math.min(1, input.steer))
   const dPitchWanted =
     ds > 1e-8
@@ -71,47 +145,72 @@ export function update(
       : 0
   let dPitch = clampSteerDeltaDeg(dPitchWanted, ds, soil)
 
-  // Mild walkBias (+ dive) + tiny noise
   const walkPhase = state.walkPhase + dt
   const noise = Math.sin(walkPhase * 1.7) * soil.walkNoiseAmp * 0.15 * ds
   dPitch += soil.walkBias_deg_m * ds + noise
 
   const pitchDeg = state.pitchDeg + dPitch
+  const pitchRad = (pitchDeg * Math.PI) / 180
+
+  const dSta_ft = ds * Math.cos(pitchRad) * M_TO_FT
+  const dCover_ft = ds * Math.sin(pitchRad) * M_TO_FT
   const headDepth_m = Math.min(state.boreLength_m, state.headDepth_m + ds)
+  let station_ft = Math.min(
+    state.profile.length_ft,
+    Math.max(0, state.station_ft + dSta_ft),
+  )
+  let coverDepth_ft = Math.max(0.05, state.coverDepth_ft + dCover_ft)
+
   const boreProgress =
     state.boreLength_m > 0 ? clamp01(headDepth_m / state.boreLength_m) : 0
 
-  // --- Fail cascades (minimal L1) ---
-  // Primary: TF_PANIC_DOGLEG — discrete over-steer events (edge + sustain)
+  const path = state.path.slice()
+  const last = path[path.length - 1]
+  if (
+    !last ||
+    Math.hypot(station_ft - last.sta_ft, coverDepth_ft - last.depth_ft) > 0.35
+  ) {
+    path.push({ sta_ft: station_ft, depth_ft: coverDepth_ft })
+    if (path.length > 400) path.shift()
+  }
+
+  let gradeHoldGood = state.gradeHoldGood
+  let gradeHoldSamples = state.gradeHoldSamples
+  if (ds > 0 && isInHoldBand(state.profile, station_ft)) {
+    gradeHoldSamples += 1
+    const depthOk =
+      Math.abs(coverDepth_ft - state.profile.targetDepth_ft) <= 1.5
+    const pitchOk = Math.abs(pitchDeg) <= teach.gradeWindow_deg
+    if (depthOk && pitchOk) gradeHoldGood += 1
+  }
+
   let panicDoglegCount = state.panicDoglegCount
   let panicDoglegWarn = state.panicDoglegWarn
   let taughtFail = state.taughtFail
   let phase: GamePhase = state.phase
   let oversteerTimer = state.oversteerTimer
+  let outcome: GameOutcome = state.outcome
+  let ticketScore = state.ticketScore
 
   const bendRate = ds > 1e-4 ? Math.abs(dPitchWanted) / ds : 0
   const oversteering = bendRate > teach.panicDoglegDegPerM
 
   if (oversteering) {
     oversteerTimer += dt
-    if (!panicDoglegWarn && oversteerTimer > 0.35) {
-      panicDoglegWarn = true
-    }
-    // Count one panic event after sustained over-steer (~0.9s)
+    if (!panicDoglegWarn && oversteerTimer > 0.35) panicDoglegWarn = true
     if (oversteerTimer > 0.9) {
       panicDoglegCount += 1
       oversteerTimer = 0
       if (panicDoglegCount > teach.panicDoglegWarnCount) {
         taughtFail = 'TF_PANIC_DOGLEG'
         phase = 'debrief'
+        outcome = 'taught_fail'
       }
     }
   } else {
     oversteerTimer = Math.max(0, oversteerTimer - dt * 2)
   }
 
-  // Secondary: TF_PACKED_HEAD / TF_FRAC_THIN only when player kills GPM
-  // Hold G to starve GPM (debug rail); no plant script / FC-01 on L1
   let nextGpm = state.gpmNorm
   if (input.keys['g'] || input.keys['G']) {
     nextGpm = Math.max(0, state.gpmNorm - 0.5 * dt)
@@ -123,25 +222,61 @@ export function update(
     if (thrust > 0.5) {
       taughtFail = 'TF_PACKED_HEAD'
       phase = 'debrief'
+      outcome = 'taught_fail'
     } else if (thrust < 0.1 && state.t > 3) {
       taughtFail = 'TF_FRAC_THIN'
+      phase = 'debrief'
+      outcome = 'taught_fail'
+    }
+  }
+
+  if (
+    !taughtFail &&
+    nearDaylight(state.profile, station_ft, coverDepth_ft) &&
+    boreProgress >= 0.9
+  ) {
+    const gradeHold =
+      gradeHoldSamples > 0 ? gradeHoldGood / gradeHoldSamples : 0
+    if (gradeHold >= teach.gradeHoldPass || gradeHoldSamples < 8) {
+      outcome = 'daylight'
+      phase = 'debrief'
+    } else {
+      outcome = 'wrong_daylight'
       phase = 'debrief'
     }
   }
 
-  return {
+  if (coverDepth_ft < 0.15 && boreProgress < 0.85) {
+    coverDepth_ft = 0.15
+  }
+
+  let next: GameState = {
     ...state,
     t: state.t + dt,
     phase,
     headDepth_m,
+    station_ft,
+    coverDepth_ft,
     pitchDeg,
     rop_m_s: rop,
     boreProgress,
+    path,
+    clockAngleDeg,
     panicDoglegCount,
     panicDoglegWarn,
     taughtFail,
     gpmNorm: nextGpm,
     walkPhase,
     oversteerTimer,
+    gradeHoldGood,
+    gradeHoldSamples,
+    outcome,
+    ticketScore,
   }
+
+  if (phase === 'debrief' && ticketScore === 0) {
+    next = { ...next, ticketScore: finalizeScore(next) }
+  }
+
+  return next
 }

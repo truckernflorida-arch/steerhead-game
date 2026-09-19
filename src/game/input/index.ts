@@ -1,16 +1,18 @@
 /**
- * InputFrame aggregate — keyboard + touch stubs.
+ * InputFrame aggregate — keyboard + touch + clock-face rod rotation.
  */
 export type InputFrame = {
-  /** Steer left/right -1..1 */
+  /** Steer / pitch -1..1 (dive +) */
   steer: number
   /** Thrust / push 0..1 */
   thrust: number
-  /** RPM hold / spin 0..1 */
   rpm: number
-  /** Touch speed-control stub (mobile) — placeholder API */
   touchSpeed: number
+  /** Clock-face angle deg from 12 o'clock, clockwise */
+  clockAngleDeg: number
   keys: Record<string, boolean>
+  startPush?: boolean
+  retry?: boolean
 }
 
 export function createEmptyInput(): InputFrame {
@@ -19,9 +21,20 @@ export function createEmptyInput(): InputFrame {
     thrust: 0,
     rpm: 0,
     touchSpeed: 0,
+    clockAngleDeg: 180,
     keys: {},
   }
 }
 
 export { sampleKeyboard } from './keyboard'
-export { sampleTouchSpeed, type TouchSpeedControl } from './touch'
+export { sampleTouchSpeed, createTouchSpeedControl, type TouchSpeedControl } from './touch'
+export {
+  sampleClock,
+  createClockControl,
+  hourToAngleDeg,
+  angleDegToHour,
+  clockAngleToSteer,
+  pointerToClockAngle,
+  normalizeAngleDeg,
+  type ClockControl,
+} from './clock'
