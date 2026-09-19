@@ -1,0 +1,198 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+  background: #0f1316;
+  color: #e6eef4;
+}
+
+a {
+  color: #7ec8ff;
+}
+
+main.home {
+  width: min(42rem, calc(100% - 2rem));
+  margin: 4rem auto;
+}
+
+main.home .note {
+  color: #8a9aa6;
+  font-size: 0.9rem;
+}
+
+.play-shell {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+.play-header h1 {
+  margin: 0 0 0.25rem;
+  font-size: 1.35rem;
+}
+
+.play-sub {
+  margin: 0 0 1rem;
+  color: #8a9aa6;
+  font-size: 0.9rem;
+}
+
+.play-layout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.play-canvas {
+  flex: 1 1 320px;
+  width: 100%;
+  max-width: 640px;
+  height: auto;
+  background: #1a1f24;
+  border: 1px solid #2c3640;
+  border-radius: 8px;
+}
+
+.trainer-hud {
+  flex: 1 1 260px;
+  background: #161b20;
+  border: 1px solid #2c3640;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.hud-meta {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  font-size: 0.85rem;
+  color: #8a9aa6;
+}
+
+.status-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.symptom {
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.symptom.info {
+  background: #1e3a4c;
+  color: #9fd4ff;
+}
+
+.symptom.warn {
+  background: #4a3a12;
+  color: #ffd56a;
+}
+
+.symptom.critical {
+  background: #4a1818;
+  color: #ff8a8a;
+}
+
+.meters {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.4rem;
+}
+
+.meter {
+  background: #0f1316;
+  border-radius: 4px;
+  padding: 0.35rem 0.45rem;
+}
+
+.meter-label {
+  display: block;
+  font-size: 0.65rem;
+  color: #8a9aa6;
+  text-transform: uppercase;
+}
+
+.meter-value {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.95rem;
+}
+
+.verb-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.verb-chip {
+  appearance: none;
+  border: 1px solid #3d4a54;
+  background: #243039;
+  color: #e6eef4;
+  border-radius: 999px;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.verb-chip:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.verb-chip:not(:disabled):hover {
+  border-color: #7ec8ff;
+}
+
+.hud-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.hud-actions button {
+  appearance: none;
+  border: 1px solid #3d4a54;
+  background: transparent;
+  color: #c5d4de;
+  border-radius: 4px;
+  padding: 0.3rem 0.6rem;
+  cursor: pointer;
+}
+
+.cause-log-count {
+  font-size: 0.75rem;
+  color: #8a9aa6;
+}
+
+.touch-speed {
+  margin-top: 1rem;
+  max-width: 420px;
+}
+
+.touch-speed label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  color: #8a9aa6;
+  margin-bottom: 0.35rem;
+}
+
+.touch-speed input[type='range'] {
+  width: 100%;
+}
+
+code {
+  font-size: 0.9em;
+}

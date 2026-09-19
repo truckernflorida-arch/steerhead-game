@@ -1,0 +1,258 @@
+{
+  "campaign": "mud_plant_school",
+  "version": 2,
+  "levels": [
+    {
+      "id": "S01",
+      "title": "Dirt Yard (Lesson 1)",
+      "lesson": "dirt_ladder_steer_easy",
+      "soilClass": [
+        "light_fill"
+      ],
+      "mud": {
+        "weight": 8.6,
+        "viscosity": 32,
+        "bentonite": "low",
+        "polymer": "low",
+        "locked": true
+      },
+      "plantFail": "none",
+      "pass": "exit window; gradeHold>=70%; no pack/frac; <=1 panic dogleg; no strike",
+      "failSentence": "In easy ground with good mud, the bore dies from how you steer \u2014 not from the dirt.",
+      "rev": 2,
+      "spineLesson": 1,
+      "mapsTo": "LEARNING_CORE_LOOP.md Lesson 1",
+      "bore": {
+        "length_ft": 120,
+        "targetDepth_ft": 6,
+        "gradeWindow_deg": 1.5,
+        "exit": "wide",
+        "exitBullseye_m": 0.6
+      },
+      "apwa": [
+        {
+          "color": "yellow",
+          "type": "gas",
+          "depth_ft": 3.5,
+          "sta_ft": 40,
+          "clearance": "wide"
+        },
+        {
+          "color": "blue",
+          "type": "water",
+          "depth_ft": 3.0,
+          "role": "parallel_brief_only"
+        }
+      ],
+      "debriefChecklist": [
+        "Brief: named Dirt/light_fill + APWA yellow/blue",
+        "Mix: confirmed locked recipe in green band",
+        "Push: GPM+PSI green; steer only when allowed",
+        "Clean: noted CleanIndex before pull (soft)",
+        "Pull: product daylit in window",
+        "Outcome: stated gradeHold%; named TF_* if taught-fail"
+      ]
+    },
+    {
+      "id": "S02",
+      "title": "Mixer Dies at 40%",
+      "lesson": "pressure_volume",
+      "soilClass": [
+        "light_fill"
+      ],
+      "mud": {
+        "weight": 8.6,
+        "viscosity": 30,
+        "bentonite": "low",
+        "polymer": "low"
+      },
+      "plantFail": "centrifugal@40%",
+      "pass": "survive die-off; CleanIndex>60; no panic frac",
+      "failSentence": "When volume dies, stop pushing \u2014 a dry head packs faster than you can steer out of it."
+    },
+    {
+      "id": "S03",
+      "title": "Fat Clay Residential Drop",
+      "lesson": "no_steer_refusal",
+      "soilClass": [
+        "soft_clay"
+      ],
+      "mud": {
+        "weight": 9.0,
+        "viscosity": 45,
+        "bentonite": "high",
+        "polymer": "med"
+      },
+      "plantFail": "none",
+      "pass": "finish with limited refusal overrides; no panic dogleg",
+      "failSentence": "Fat clay doesn\u2019t take a bend just because you want one \u2014 wait for the face, or you\u2019ll write a kink you can\u2019t pull."
+    },
+    {
+      "id": "S04",
+      "title": "Wrong Mix in the Tank",
+      "lesson": "diagnose_recipe",
+      "soilClass": [
+        "soft_clay"
+      ],
+      "mud": {
+        "weight": 8.5,
+        "viscosity": 28,
+        "bentonite": "low",
+        "polymer": "none",
+        "wrong": true,
+        "target": {
+          "weight": 9.0,
+          "viscosity": 45
+        }
+      },
+      "plantFail": "mixer_wrong_inherit",
+      "pass": "correct to clay band before 50%; no pack",
+      "failSentence": "The tank doesn\u2019t care what the ticket says \u2014 weigh and funnel it, or the clay will pack you for free."
+    },
+    {
+      "id": "S05",
+      "title": "Cobble Crossing",
+      "lesson": "walk_torque",
+      "soilClass": [
+        "light_fill",
+        "cobble",
+        "light_fill"
+      ],
+      "mud": {
+        "weight": 8.8,
+        "viscosity": 36,
+        "bentonite": "med",
+        "polymer": "low"
+      },
+      "plantFail": "mudPump_relief_on_torque",
+      "pass": "torque in band; no lockup",
+      "failSentence": "Cobble walks and bites torque \u2014 fight every pebble with steer and you\u2019ll stall the motor."
+    },
+    {
+      "id": "S06",
+      "title": "Soft Rock Patience",
+      "lesson": "bit_choice_patience",
+      "soilClass": [
+        "fill_shoulder",
+        "rock"
+      ],
+      "mud": {
+        "weight": 8.7,
+        "viscosity": 34,
+        "bentonite": "med",
+        "polymer": "low"
+      },
+      "plantFail": "wrong_bit_at_brief",
+      "pass": "rock bit; no twist-off; grade band",
+      "failSentence": "Soft rock rewards the right face and patience \u2014 shoving a clay bit harder only buys heat and a twist-off."
+    },
+    {
+      "id": "S07",
+      "title": "Mixed Face Under a Road",
+      "lesson": "read_face_change",
+      "soilClass": [
+        "fill_shoulder",
+        "engineered_fill",
+        "cobble",
+        "light_fill"
+      ],
+      "mud": {
+        "weight": 8.9,
+        "viscosity": 38,
+        "bentonite": "med",
+        "polymer": "med"
+      },
+      "plantFail": "recycling_blind",
+      "pass": "cover held; no shoulder frac; adjust once on face change",
+      "failSentence": "The road doesn\u2019t care which face you started in \u2014 when the ground changes, your hands have to change with it."
+    },
+    {
+      "id": "S08",
+      "title": "Long Shot, Dirty Returns",
+      "lesson": "hole_cleaning",
+      "soilClass": [
+        "soft_clay"
+      ],
+      "mud": {
+        "weight": 9.0,
+        "viscosity": 42,
+        "bentonite": "high",
+        "polymer": "med"
+      },
+      "plantFail": "recycling_bypass@50%",
+      "pass": "CleanIndex>=70 before pull prompt; sand<4%",
+      "failSentence": "Long shots don\u2019t finish when the head arrives \u2014 they finish when the returns run clean."
+    },
+    {
+      "id": "S09",
+      "title": "Frac Clay by the Creek",
+      "lesson": "frac_pressure_discipline",
+      "soilClass": [
+        "soft_clay",
+        "silt",
+        "soft_clay"
+      ],
+      "mud": {
+        "weight": 8.8,
+        "viscosity": 40,
+        "bentonite": "med-high",
+        "polymer": "high"
+      },
+      "plantFail": "mudPump_transducer_lag",
+      "pass": "no creek frac; CleanIndex>=55; pressure band after lag",
+      "failSentence": "Near water, a packed clay face wants more pump \u2014 that\u2019s how you frac the bank."
+    },
+    {
+      "id": "S10",
+      "title": "Ream After Dirty Pilot",
+      "lesson": "clean_before_ream",
+      "soilClass": [
+        "soft_clay"
+      ],
+      "mud": {
+        "weight": 9.1,
+        "viscosity": 44,
+        "bentonite": "high",
+        "polymer": "med"
+      },
+      "plantFail": "none_if_circulated",
+      "pass": "CleanIndex>=75 before reamer; one stage clear",
+      "failSentence": "A dirty pilot plus a fat reamer isn\u2019t progress \u2014 it\u2019s a cuttings plug with horsepower."
+    },
+    {
+      "id": "S11",
+      "title": "Pullback, Marginal Hole",
+      "lesson": "clean_before_pull",
+      "soilClass": [
+        "light_fill",
+        "soft_clay"
+      ],
+      "mud": {
+        "weight": 8.9,
+        "viscosity": 38,
+        "bentonite": "med",
+        "polymer": "med"
+      },
+      "plantFail": "centrifugal_weak_80pct",
+      "pass": "CleanIndex>=70 at swivel-up for clean unlock",
+      "failSentence": "Pulling into a marginal hole trades five minutes of circulation for an hour of stuck pipe."
+    },
+    {
+      "id": "S12",
+      "title": "Final Exam",
+      "lesson": "all_five",
+      "soilClass": [
+        "soft_clay",
+        "cobble",
+        "engineered_fill"
+      ],
+      "mud": {
+        "playerMixed": true,
+        "mustHit": "clay_band"
+      },
+      "plantFail": "centrifugal_then_mudPump_cap@55%",
+      "pass": "recipe+survive cascade+cover+CleanIndex>=70+product+no strike",
+      "failSentence": "Graduation isn\u2019t perfect dirt \u2014 it\u2019s reading soil, trusting the funnel, nursing volume, and only steering what the face will give you."
+    }
+  ]
+}
