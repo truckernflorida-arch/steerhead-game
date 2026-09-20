@@ -237,13 +237,18 @@ export function update(
   let pendingPush_ft = state.pendingPush_ft
   let drillStraight = false
 
+  // Never step past the end of the current 10 ft rod
+  const intoRod = ((state.station_ft % rodLen) + rodLen) % rodLen
+  const rodLeft = Math.max(0.05, rodLen - intoRod)
+  const stepLen = Math.min(pushLen, rodLeft)
+
   // Discrete Push @ clock (clears straight mode)
   if (input.pushStep && pendingPush_ft <= 0.01) {
-    pendingPush_ft = pushLen
+    pendingPush_ft = stepLen
     drillStraight = false
   } else if (input.drillStep && pendingPush_ft <= 0.01) {
-    // One tap = one step (up to pushLen / rest of 10 ft rod), then stops
-    pendingPush_ft = pushLen
+    // One tap = one step, then stops (no continuous hold)
+    pendingPush_ft = stepLen
     drillStraight = true
   } else if (pendingPush_ft > 0.01 && state.drillStraight && !input.pushStep) {
     // Finish the in-flight straight step, then clear

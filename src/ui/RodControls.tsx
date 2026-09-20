@@ -18,9 +18,9 @@ type Props = {
   onPushStep: () => void
   /** Tap: discrete straight drill (same length as Push, no clock) */
   onDrillStep: () => void
-  /** Hold: continuous straight drill (no clock steer) */
-  onDrillDown: () => void
-  onDrillUp: () => void
+  /** @deprecated Hold disabled — kept optional for API compat */
+  onDrillDown?: () => void
+  onDrillUp?: () => void
   drillActive: boolean
   /** Brief only: start first rod from plan card / rod strip */
   onDrillFirstRod?: () => void
@@ -41,12 +41,14 @@ export function RodControls({
   rodTotal,
   onPushStep,
   onDrillStep,
-  onDrillDown,
-  onDrillUp,
+  onDrillDown: _onDrillDown,
+  onDrillUp: _onDrillUp,
   drillActive,
   onDrillFirstRod,
   stationFt = 0,
 }: Props) {
+  void _onDrillDown
+  void _onDrillUp
   const hour = angleDegToHour(clockAngleDeg)
   const piloting = phase === 'pilot'
   const briefing = phase === 'brief'
@@ -57,12 +59,12 @@ export function RodControls({
     0.5,
     Math.round((ROD_LENGTH_FT - intoRod) * 10) / 10 || ROD_LENGTH_FT,
   )
-  const isFullRod = Math.abs(pushLengthFt - rodRemainingFt) < 0.05 || pushLengthFt >= ROD_LENGTH_FT - 0.05
+  const isFullRod = pushLengthFt >= ROD_LENGTH_FT - 0.05
   const pushLabel = isFullRod
-    ? `Push full rod (${rodRemainingFt} ft) @ ${hour} o'clock`
+    ? `Push full 10 ft rod @ ${hour} o'clock`
     : `Push ${pushLengthFt} ft @ ${hour} o'clock`
   const drillLabel = isFullRod
-    ? `Drill full rod (${rodRemainingFt} ft)`
+    ? `Drill full 10 ft rod`
     : `Drill ${pushLengthFt} ft straight`
 
 
@@ -113,7 +115,7 @@ export function RodControls({
           <button
             type="button"
             className={isFullRod ? 'rod-chip rod-chip-on' : 'rod-chip'}
-            onClick={() => onPushLengthFt(rodRemainingFt)}
+            onClick={() => onPushLengthFt(ROD_LENGTH_FT)}
             disabled={false}
             title={`Finish this 10 ft rod (~${rodRemainingFt} ft left)`}
           >

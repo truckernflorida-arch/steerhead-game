@@ -276,17 +276,6 @@ function PlayPage() {
     // After start, Just drill hold is the pilot drill control
   }
 
-  function onDrillDown() {
-    if (stateRef.current.phase === 'brief') {
-      startPushRef.current = true
-      return
-    }
-    if (stateRef.current.phase !== 'pilot') return
-    // Hold only — continuous straight; tap uses onDrillStep
-    drillStraightRef.current = true
-    setDrillActive(true)
-  }
-
   function onDrillStep() {
     if (stateRef.current.phase === 'brief') {
       startPushRef.current = true
@@ -294,15 +283,18 @@ function PlayPage() {
     }
     if (stateRef.current.phase !== 'pilot') return
     if (stateRef.current.pendingPush_ft > 0.05) return
+    // Discrete only — never leave continuous drillStraight stuck on
+    drillStraightRef.current = false
     pushStepRef.current = false
-    drillStraightRef.current = true
-    setDrillActive(true)
     drillStepRef.current = true
+  }
+
+  function onDrillDown() {
+    // Hold disabled — continuous mode was sticking mid-bore
   }
 
   function onDrillUp() {
     drillStraightRef.current = false
-    setDrillActive(false)
   }
 
   function onPushLength(ft: number) {
