@@ -1,7 +1,8 @@
 /**
  * Play route — Lesson 1 = S01 Dirt Yard (light_fill / dirt).
- * Clock + locator + profile / oblique map + rod push + Just drill.
- * Brief: no blocking overlay; set clock first, then Spud in / Start push.
+ * Crew workflow: rig entry pitch → Spud → 10 ft rods along curved ROW.
+ * Target steering on Falcon/locator · Ground locate map with APWA paint.
+ * Brief: set clock + rig pitch first; no auto-run.
  */
 import { createFileRoute } from '@tanstack/react-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -25,11 +26,15 @@ import {
   createGameState,
   resetGameState,
   DEFAULT_PUSH_FT,
+  DEFAULT_ENTRY_PITCH_DEG,
+  ENTRY_PITCH_MIN,
+  ENTRY_PITCH_MAX,
   type GameState,
 } from '#/game/state'
 import { update } from '#/game/update'
 import { render } from '#/game/render'
 import { renderOblique } from '#/game/renderOblique'
+import { renderGround } from '#/game/renderGround'
 import { TrainerHud } from '#/ui/TrainerHud'
 import { ClockFace } from '#/ui/ClockFace'
 import { LocatorPanel } from '#/ui/LocatorPanel'
@@ -41,7 +46,7 @@ export const Route = createFileRoute('/play')({ component: PlayPage })
 
 const INITIAL_CLOCK_DEG = 180
 
-type MapView = 'profile' | 'oblique'
+type MapView = 'profile' | 'oblique' | 'ground'
 
 function PlayPage() {
   const level = useMemo(() => loadLesson1(), [])
@@ -56,6 +61,7 @@ function PlayPage() {
   const pushStepRef = useRef(false)
   const drillStraightRef = useRef(false)
   const pushLengthRef = useRef(DEFAULT_PUSH_FT)
+  const entryPitchRef = useRef(DEFAULT_ENTRY_PITCH_DEG)
   const clockConfirmedRef = useRef(false)
   const stateRef = useRef<GameState>(createGameState(level))
   const [snap, setSnap] = useState<TickSnap>(() =>
@@ -66,12 +72,16 @@ function PlayPage() {
   const [clockAngle, setClockAngle] = useState(INITIAL_CLOCK_DEG)
   const [clockConfirmed, setClockConfirmed] = useState(false)
   const [pushLengthFt, setPushLengthFt] = useState(DEFAULT_PUSH_FT)
+  const [entryPitchDeg, setEntryPitchDeg] = useState(DEFAULT_ENTRY_PITCH_DEG)
   const [pendingPushFt, setPendingPushFt] = useState(0)
   const [drillActive, setDrillActive] = useState(false)
+  const [rodIndex, setRodIndex] = useState(1)
+  const [rodTotal, setRodTotal] = useState(12)
   const [mapView, setMapView] = useState<MapView>('profile')
   const [status, setStatus] = useState('')
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const obliqueRef = useRef<HTMLCanvasElement>(null)
+  const groundRef = useRef<HTMLCanvasElement>(null)
   const mapViewRef = useRef<MapView>('profile')
 
   useEffect(() => {
@@ -85,8 +95,12 @@ function PlayPage() {
     setTouchSpeed(0)
     pushLengthRef.current = DEFAULT_PUSH_FT
     setPushLengthFt(DEFAULT_PUSH_FT)
+    entryPitchRef.current = DEFAULT_ENTRY_PITCH_DEG
+    setEntryPitchDeg(DEFAULT_ENTRY_PITCH_DEG)
     drillStraightRef.current = false
     setDrillActive(false)
+    setRodIndex(1)
+    setRodTotal(stateRef.current.rodTotal)
   }, [level])
 
   useEffect(() => {
@@ -122,7 +136,6 @@ function PlayPage() {
       const phase = stateRef.current.phase
       const clockBefore = clock.current.angleDeg
 
-      // Hour snaps + Q/E nudge (edge) — allowed in brief so player can set clock
       if (edge('q') || edge('Q')) clock.current.nudge(-15)
       if (edge('e') || edge('E')) clock.current.nudge(15)
       for (let h = 1; h <= 9; h++) {
@@ -131,6 +144,24 @@ function PlayPage() {
       if (edge('0')) clock.current.setHour(10)
       if (edge('-') || edge('_')) clock.current.setHour(11)
       if (edge('=') || edge('+')) clock.current.setHour(12)
+
+      // Brief: nudge entry pitch with [ / ]
+      if (phase === 'brief') {
+        if (edge('[')) {
+          entryPitchRef.current = Math.max(
+            ENTRY_PITCH_MIN,
+            entryPitchRef.current - 0.5,
+          )
+          setEntryPitchDeg(entryPitchRef.current)
+        }
+        if (edge(']')) {
+          entryPitchRef.current = Math.min(
+            ENTRY_PITCH_MAX,
+            entryPitchRef.current + 0.5,
+          )
+          setEntryPitchDeg(entryPitchRef.current)
+        }
+      }
 
       if (
         phase === 'brief' &&
@@ -142,7 +173,6 @@ function PlayPage() {
       }
 
       let input = createEmptyInput()
-      // During brief: do not sample W thrust / steer into motion — clock only.
       if (phase === 'brief') {
         input = sampleClock(input, clock.current.angleDeg, 0)
         input = {
@@ -155,6 +185,7 @@ function PlayPage() {
           pushStep: false,
           drillStraight: false,
           pushLengthFt: pushLengthRef.current,
+          entryPitchDeg: entryPitchRef.current,
         }
       } else {
         input = sampleKeyboard(input, keys)
@@ -171,6 +202,7 @@ function PlayPage() {
           pushStep: pushStepRef.current,
           drillStraight: drillStraightRef.current,
           pushLengthFt: pushLengthRef.current,
+          entryPitchDeg: entryPitchRef.current,
         }
       }
       startPushRef.current = false
@@ -184,18 +216,24 @@ function PlayPage() {
       clock.current.setAngleDeg(next.clockAngleDeg)
       setPendingPushFt(next.pendingPush_ft)
       setDrillActive(next.drillStraight)
+      setRodIndex(next.rodIndex)
+      setRodTotal(next.rodTotal)
+      setEntryPitchDeg(next.entryPitchDeg)
       const nextSnap = emitFromGameState(emitter.current, next)
       setSnap(nextSnap)
       setStatus(
-        `sta ${next.station_ft.toFixed(0)} ft · depth ${next.coverDepth_ft.toFixed(1)} ft · L/R ${next.lateral_ft >= 0 ? '+' : ''}${next.lateral_ft.toFixed(1)} ft · pitch ${next.pitchDeg.toFixed(1)}° · ROP ${next.rop_m_s.toFixed(3)} m/s`,
+        `Rod ${next.rodIndex}/${next.rodTotal} · sta ${next.station_ft.toFixed(0)} ft · depth ${next.coverDepth_ft.toFixed(1)} ft · L/R ${next.lateral_ft >= 0 ? '+' : ''}${next.lateral_ft.toFixed(1)} · pitch ${next.pitchDeg.toFixed(1)}° (tgt ${next.targetPitchDeg.toFixed(1)}°) · ROP ${next.rop_m_s.toFixed(3)} m/s`,
       )
 
       if (mapViewRef.current === 'profile') {
         const c = canvasRef.current
         if (c) render(c, next)
-      } else {
+      } else if (mapViewRef.current === 'oblique') {
         const o = obliqueRef.current
         if (o) renderOblique(o, next)
+      } else {
+        const g = groundRef.current
+        if (g) renderGround(g, next)
       }
 
       raf = requestAnimationFrame(tick)
@@ -216,6 +254,15 @@ function PlayPage() {
       clockConfirmedRef.current = true
       setClockConfirmed(true)
     }
+  }
+
+  function onEntryPitch(v: number) {
+    const clamped = Math.min(
+      ENTRY_PITCH_MAX,
+      Math.max(ENTRY_PITCH_MIN, v),
+    )
+    entryPitchRef.current = clamped
+    setEntryPitchDeg(clamped)
   }
 
   function onStartPush() {
@@ -256,9 +303,13 @@ function PlayPage() {
     setTouchSpeed(0)
     pushLengthRef.current = DEFAULT_PUSH_FT
     setPushLengthFt(DEFAULT_PUSH_FT)
+    entryPitchRef.current = DEFAULT_ENTRY_PITCH_DEG
+    setEntryPitchDeg(DEFAULT_ENTRY_PITCH_DEG)
     setPendingPushFt(0)
     drillStraightRef.current = false
     setDrillActive(false)
+    setRodIndex(1)
+    setRodTotal(stateRef.current.rodTotal)
   }
 
   const pushing = snap.phase === 'pilot'
@@ -273,7 +324,7 @@ function PlayPage() {
           <code>
             {LESSON1_SOIL_ID}→{soil.fourPack}
           </code>{' '}
-          · {level.bore?.length_ft ?? 120} ft · plantFail{' '}
+          · {level.bore?.length_ft ?? 120} ft curved ROW · plantFail{' '}
           <code>{level.plantFail}</code>
           {level.mud.locked ? ' · mud locked' : ''} · ROP{' '}
           {soil.ropRange_m_s[0]}–{soil.ropRange_m_s[1]} m/s · maxSteer{' '}
@@ -293,6 +344,45 @@ function PlayPage() {
           />
           {inBrief ? (
             <div className="spud-row">
+              <div className="rig-pitch" aria-label="Rig entry pitch setup">
+                <label htmlFor="rig-pitch">
+                  Rig entry pitch{' '}
+                  <strong>
+                    {entryPitchDeg.toFixed(1)}°
+                  </strong>
+                </label>
+                <div className="rig-pitch-row">
+                  <button
+                    type="button"
+                    className="rod-chip"
+                    onClick={() => onEntryPitch(entryPitchDeg - 0.5)}
+                    aria-label="Lower entry pitch"
+                  >
+                    −
+                  </button>
+                  <input
+                    id="rig-pitch"
+                    type="range"
+                    min={ENTRY_PITCH_MIN}
+                    max={ENTRY_PITCH_MAX}
+                    step={0.5}
+                    value={entryPitchDeg}
+                    onChange={(e) => onEntryPitch(Number(e.target.value))}
+                  />
+                  <button
+                    type="button"
+                    className="rod-chip"
+                    onClick={() => onEntryPitch(entryPitchDeg + 0.5)}
+                    aria-label="Raise entry pitch"
+                  >
+                    +
+                  </button>
+                </div>
+                <p className="spud-hint rig-pitch-hint">
+                  Raise/lower machine (or bit) before Spud. Next rods level out
+                  or keep diving per depth plan. Keys [ ]
+                </p>
+              </div>
               <p className="spud-hint">
                 {clockConfirmed
                   ? 'Clock set — ready to spud in.'
@@ -317,6 +407,8 @@ function PlayPage() {
         onPushLengthFt={onPushLength}
         pendingPushFt={pendingPushFt}
         phase={snap.phase}
+        rodIndex={rodIndex}
+        rodTotal={rodTotal}
         onPushStep={onPushStep}
         onDrillDown={onDrillDown}
         onDrillUp={onDrillUp}
@@ -342,7 +434,16 @@ function PlayPage() {
           className={mapView === 'oblique' ? 'map-tab map-tab-on' : 'map-tab'}
           onClick={() => setMapView('oblique')}
         >
-          Locator map (L/R)
+          Oblique 3D
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mapView === 'ground'}
+          className={mapView === 'ground' ? 'map-tab map-tab-on' : 'map-tab'}
+          onClick={() => setMapView('ground')}
+        >
+          Ground locate
         </button>
       </div>
 
@@ -355,13 +456,21 @@ function PlayPage() {
             height={400}
             aria-label="Profile bore view — entry to daylight"
           />
-        ) : (
+        ) : mapView === 'oblique' ? (
           <canvas
             ref={obliqueRef}
             className="play-canvas oblique-canvas"
             width={720}
             height={360}
-            aria-label="Oblique locator map — left and right walk"
+            aria-label="Oblique 3D map — curved ROW and utilities"
+          />
+        ) : (
+          <canvas
+            ref={groundRef}
+            className="play-canvas ground-canvas"
+            width={720}
+            height={400}
+            aria-label="Ground locate map — curved road and APWA paint"
           />
         )}
         <TrainerHud
@@ -393,13 +502,13 @@ function PlayPage() {
         />
         {inBrief ? (
           <p className="touch-speed-note">
-            Thrust stays at 0 until you Spud in — slider unlocks after start.
-            Prefer Push 2 ft @ clock for deliberate steps.
+            Set rig pitch + clock, then Spud. Thrust stays at 0 until start.
+            Prefer Push 2 ft @ clock for deliberate rod steps.
           </p>
         ) : (
           <p className="touch-speed-note">
             Continuous free thrust (Drill). Deliberate 2 ft pushes use the rod
-            buttons above.
+            buttons above. Falcon TARGET STEERING shows pitch band vs plan.
           </p>
         )}
       </div>

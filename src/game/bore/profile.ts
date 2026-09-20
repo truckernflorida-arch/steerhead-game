@@ -1,7 +1,15 @@
 /**
  * S01 profile geometry helpers — entry → hold → utilities → climb → daylight.
  * Units: feet for locator/HUD; meters internally where physics uses m.
+ * Extended: curved road ROW centerline + ground locates for map paint.
  */
+import {
+  sampleCenterline,
+  groundLocatesFromPlan,
+  type CenterlineSample,
+  type GroundLocate,
+} from './centerline'
+
 export const FT_TO_M = 0.3048
 export const M_TO_FT = 1 / FT_TO_M
 
@@ -12,6 +20,10 @@ export type BorePoint = {
   depth_ft: number
   /** Lateral offset (ft): + right / − left of centerline */
   offset_ft?: number
+  /** Plan world X along curved ROW (ft) */
+  x_ft?: number
+  /** Plan world Y along curved ROW (ft) */
+  y_ft?: number
 }
 
 export type ApwaMark = {
@@ -33,6 +45,12 @@ export type ProfilePlan = {
   holdEndFrac: number
   climbStartFrac: number
   apwa: ApwaMark[]
+  /** Curved road ROW samples (arc-length stationed) */
+  centerline: CenterlineSample[]
+  /** APWA paint blobs on ground / road */
+  groundLocates: GroundLocate[]
+  /** Geometry tag for HUD */
+  geometry: 'curved_road_row' | 'straight'
 }
 
 export function planFromLevel(level: {
@@ -58,7 +76,7 @@ export function planFromLevel(level: {
       role: m.role != null ? String(m.role) : undefined,
     })
   }
-  return {
+  const planBase: ProfilePlan = {
     length_ft,
     targetDepth_ft: level.bore?.targetDepth_ft ?? 6,
     gradeWindow_deg: level.bore?.gradeWindow_deg ?? 1.5,
@@ -67,7 +85,13 @@ export function planFromLevel(level: {
     holdEndFrac: 0.72,
     climbStartFrac: 0.78,
     apwa,
+    centerline: [],
+    groundLocates: [],
+    geometry: 'curved_road_row',
   }
+  planBase.centerline = sampleCenterline(length_ft, 80)
+  planBase.groundLocates = groundLocatesFromPlan(planBase, planBase.centerline)
+  return planBase
 }
 
 /** Ideal cover depth along station for teaching overlay (not force). */
@@ -107,3 +131,5 @@ export function nearDaylight(
   const bullseyeFt = plan.exitBullseye_m * M_TO_FT
   return u >= 0.92 && depth_ft <= Math.max(1.2, bullseyeFt * 0.5)
 }
+
+export type { CenterlineSample, GroundLocate }

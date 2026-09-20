@@ -1,0 +1,82 @@
+/**
+ * Locator TARGET STEERING mode — Falcon-style target vs actual pitch/clock cues.
+ * Guidance only; fails still come from TickSnap causes (no UI invention).
+ */
+import { idealDepthAtSta, type ProfilePlan } from './profile'
+
+/** Ideal pitch (° , + dive) from depth plan slope at station. */
+export function idealPitchAtSta(plan: ProfilePlan, sta_ft: number): number {
+  const eps = 0.75
+  const d0 = idealDepthAtSta(plan, Math.max(0, sta_ft - eps * 0.5))
+  const d1 = idealDepthAtSta(plan, Math.min(plan.length_ft, sta_ft + eps * 0.5))
+  const run = Math.min(plan.length_ft, sta_ft + eps * 0.5) - Math.max(0, sta_ft - eps * 0.5)
+  if (run < 1e-6) return 0
+  return (Math.atan2(d1 - d0, run) * 180) / Math.PI
+}
+
+export type SteerCue = {
+  /** Short HUD label */
+  label: string
+  /** Suggested clock hour (1–12) for correction, or null if hold */
+  suggestHour: number | null
+  /** Pitch band status */
+  pitchBand: 'low' | 'in' | 'high'
+  /** Lateral cue */
+  lateralCue: 'left' | 'hold' | 'right'
+}
+
+export function buildSteerCue(
+  actualPitchDeg: number,
+  targetPitchDeg: number,
+  lateral_ft: number,
+  gradeWindow_deg: number,
+): SteerCue {
+  const err = actualPitchDeg - targetPitchDeg
+  const half = Math.max(0.4, gradeWindow_deg)
+  let pitchBand: SteerCue['pitchBand'] = 'in'
+  if (err > half) pitchBand = 'high' // too much dive
+  else if (err < -half) pitchBand = 'low' // too flat / climbing vs target
+
+  let lateralCue: SteerCue['lateralCue'] = 'hold'
+  if (lateral_ft > 1.0) lateralCue = 'left' // right of CL → steer left (9)
+  else if (lateral_ft < -1.0) lateralCue = 'right'
+
+  // Clock: 6 = dive, 12 = climb/level, 3 = right, 9 = left
+  let suggestHour: number | null = null
+  let label = 'HOLD · ON TARGET'
+  if (pitchBand === 'high' && lateralCue === 'hold') {
+    suggestHour = 12
+    label = 'STEER UP · LESS DIVE'
+  } else if (pitchBand === 'low' && lateralCue === 'hold') {
+    suggestHour = 6
+    label = 'STEER DOWN · MORE DIVE'
+  } else if (pitchBand === 'in' && lateralCue === 'left') {
+    suggestHour = 9
+    label = 'STEER LEFT · BACK TO ROW'
+  } else if (pitchBand === 'in' && lateralCue === 'right') {
+    suggestHour = 3
+    label = 'STEER RIGHT · BACK TO ROW'
+  } else if (pitchBand === 'high' && lateralCue === 'left') {
+    suggestHour = 10
+    label = 'UP + LEFT'
+  } else if (pitchBand === 'high' && lateralCue === 'right') {
+    suggestHour = 2
+    label = 'UP + RIGHT'
+  } else if (pitchBand === 'low' && lateralCue === 'left') {
+    suggestHour = 8
+    label = 'DOWN + LEFT'
+  } else if (pitchBand === 'low' && lateralCue === 'right') {
+    suggestHour = 4
+    label = 'DOWN + RIGHT'
+  }
+
+  return { label, suggestHour, pitchBand, lateralCue }
+}
+
+export function rodIndexFromStation(station_ft: number, rodLength_ft: number): number {
+  return Math.max(1, Math.floor(station_ft / Math.max(1, rodLength_ft)) + 1)
+}
+
+export function rodTotalFromLength(length_ft: number, rodLength_ft: number): number {
+  return Math.max(1, Math.ceil(length_ft / Math.max(1, rodLength_ft)))
+}

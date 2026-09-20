@@ -1,6 +1,6 @@
 /**
- * Walkover locator — depth / pitch / station / APWA from TickSnap only.
- * Concept: concepts/01-locator-clock-hud.png
+ * Walkover locator — depth / pitch / station / APWA + TARGET STEERING cues.
+ * Concept: concepts/01-locator-clock-hud.png — TickSnap only.
  */
 import type { TickSnap } from '#/game/ticksnap'
 
@@ -15,26 +15,61 @@ export function LocatorPanel({ snap }: Props) {
   const bars = h.signalBars ?? 5
   const apwa = h.apwa ?? []
   const target = h.targetDepthFt ?? 6
+  const ts = h.targetSteering
+  const lengthGuess = Math.max(120, station + 10)
+  const rodLabel =
+    h.rodIndex != null && h.rodTotal != null
+      ? `Rod ${h.rodIndex} of ${h.rodTotal}`
+      : null
 
   return (
     <section className="locator-panel" aria-label="Walkover locator">
       <header className="locator-head">
         <span>WALKOVER LOCATOR</span>
+        <span className="locator-mode">TARGET STEERING</span>
         <span className="locator-target">target {target.toFixed(0)} ft</span>
       </header>
 
+      {ts ? (
+        <div
+          className={`locator-steer locator-steer-${ts.pitchBand}`}
+          role="status"
+        >
+          <div className="locator-steer-row">
+            <span>
+              TGT {ts.targetPitchDeg >= 0 ? '+' : ''}
+              {ts.targetPitchDeg.toFixed(1)}°
+            </span>
+            <span>
+              ACT {ts.actualPitchDeg >= 0 ? '+' : ''}
+              {ts.actualPitchDeg.toFixed(1)}°
+            </span>
+            <span>
+              Δ {ts.pitchErrorDeg >= 0 ? '+' : ''}
+              {ts.pitchErrorDeg.toFixed(1)}°
+            </span>
+          </div>
+          <p className="locator-cue">
+            {ts.cueLabel}
+            {ts.suggestHour != null ? ` → ${ts.suggestHour} o'clock` : ''}
+          </p>
+        </div>
+      ) : null}
+
       <div className="locator-map" aria-hidden>
-        <div className="locator-path" />
+        <div className="locator-path locator-path-curve" />
         <div
           className="locator-head-dot"
-          style={{ left: `${Math.min(92, 8 + (station / 120) * 80)}%` }}
+          style={{
+            left: `${Math.min(92, 8 + (station / lengthGuess) * 80)}%`,
+          }}
         />
         {apwa.map((m, i) => (
           <div
             key={`${m.type}-${i}`}
             className={`apwa-mark apwa-${m.color}`}
             style={{
-              left: `${m.sta_ft != null ? 8 + (m.sta_ft / 120) * 80 : 30 + i * 25}%`,
+              left: `${m.sta_ft != null ? 8 + (m.sta_ft / lengthGuess) * 80 : 30 + i * 25}%`,
               top: m.role ? '70%' : '40%',
             }}
             title={m.label}
@@ -63,6 +98,10 @@ export function LocatorPanel({ snap }: Props) {
             {lateral >= 0 ? '+' : ''}
             {lateral.toFixed(1)} FT
           </span>
+        </div>
+        <div className="locator-readout">
+          <span className="lr-label">ROD</span>
+          <span className="lr-value">{rodLabel ?? '—'}</span>
         </div>
         <div className="locator-readout">
           <span className="lr-label">SIGNAL</span>

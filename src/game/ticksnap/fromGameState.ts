@@ -3,8 +3,10 @@
  * Minimal cascade: TF_PANIC_DOGLEG; secondary only if GPM killed.
  */
 import type { GameState } from '../state'
+import { ROD_LENGTH_FT } from '../state'
 import { getLesson1Soil, LIGHT_FILL_TEACH } from '../env/soil'
 import { angleDegToHour } from '../input/clock'
+import { buildSteerCue } from '../bore/targetSteering'
 import type { CauseLog, CauseSnap, TickSnap, VerbSnap } from './types'
 import { logCauseTransitions } from './causeLog'
 
@@ -161,30 +163,54 @@ export function emitFromGameState(
     causes: next.slice(),
     verbs: verbsFor(next),
     symptoms: symptomsFor(state, next),
-    hud: {
-      mudWeight: mud?.weight ?? 8.6,
-      viscosity: mud?.viscosity ?? 32,
-      pumpGpm: 48 * state.gpmNorm,
-      returns: 48 * state.gpmNorm * 0.7,
-      annularPsi: 40 + state.gpmNorm * 20,
-      pitchDeg: state.pitchDeg,
-      depthFt: state.coverDepth_ft,
-      stationFt: state.station_ft,
-      lateralFt: state.lateral_ft,
-      clockHour: angleDegToHour(state.clockAngleDeg),
-      clockAngleDeg: state.clockAngleDeg,
-      targetDepthFt: state.profile.targetDepth_ft,
-      signalBars: 5,
-      apwa,
-      gradeHoldPct,
-      packOff: state.gpmNorm < 0.1 ? 0.6 : 0.05,
-      steerAuthority: soil.steerAuthority,
-      rop: state.rop_m_s,
-      cleanIndex: 80,
-      tankVolume: 80,
-      mixerOn: state.gpmNorm > 0.2,
-      gel: teach.gradeHoldPass,
-    },
+    hud: (() => {
+      const targetPitch = state.targetPitchDeg
+      const cue = buildSteerCue(
+        state.pitchDeg,
+        targetPitch,
+        state.lateral_ft,
+        state.profile.gradeWindow_deg,
+      )
+      return {
+        mudWeight: mud?.weight ?? 8.6,
+        viscosity: mud?.viscosity ?? 32,
+        pumpGpm: 48 * state.gpmNorm,
+        returns: 48 * state.gpmNorm * 0.7,
+        annularPsi: 40 + state.gpmNorm * 20,
+        pitchDeg: state.pitchDeg,
+        depthFt: state.coverDepth_ft,
+        stationFt: state.station_ft,
+        lateralFt: state.lateral_ft,
+        clockHour: angleDegToHour(state.clockAngleDeg),
+        clockAngleDeg: state.clockAngleDeg,
+        targetDepthFt: state.profile.targetDepth_ft,
+        signalBars: 5,
+        apwa,
+        gradeHoldPct,
+        entryPitchDeg: state.entryPitchDeg,
+        targetPitchDeg: targetPitch,
+        rodIndex: state.rodIndex,
+        rodTotal: state.rodTotal,
+        rodLengthFt: state.rodLength_ft || ROD_LENGTH_FT,
+        targetSteering: {
+          mode: 'targetSteering' as const,
+          targetPitchDeg: targetPitch,
+          actualPitchDeg: state.pitchDeg,
+          pitchErrorDeg: state.pitchDeg - targetPitch,
+          pitchBand: cue.pitchBand,
+          cueLabel: cue.label,
+          suggestHour: cue.suggestHour,
+          lateralCue: cue.lateralCue,
+        },
+        packOff: state.gpmNorm < 0.1 ? 0.6 : 0.05,
+        steerAuthority: soil.steerAuthority,
+        rop: state.rop_m_s,
+        cleanIndex: 80,
+        tankVolume: 80,
+        mixerOn: state.gpmNorm > 0.2,
+        gel: teach.gradeHoldPass,
+      }
+    })(),
     flags: {
       taughtFail: state.taughtFail,
       daylight: state.outcome === 'daylight',

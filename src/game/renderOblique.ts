@@ -1,22 +1,25 @@
 /**
- * Oblique / top-ish locator map — left–right (walk/yaw) teaching view.
+ * Oblique / 3D-ish locator map — curved ROW + L/R walk + utilities.
  * Canvas 2.5D; dark teal HUD to match profile.
  */
 import type { GameState } from './state'
+import { ROD_LENGTH_FT } from './state'
 import { idealDepthAtSta } from './bore/profile'
+import { apwaColorHex, centerlineAt } from './bore/centerline'
 
 function project(
-  sta: number,
-  lat: number,
+  x_ft: number,
+  y_ft: number,
   depth: number,
   originX: number,
   originY: number,
-  scaleSta: number,
-  scaleLat: number,
+  scaleX: number,
+  scaleY: number,
   scaleDepth: number,
 ): { x: number; y: number } {
-  const x = originX + sta * scaleSta + lat * scaleLat * 0.55
-  const y = originY + depth * scaleDepth - lat * scaleLat * 0.35
+  // Oblique: X along road easting, Y northing foreshortened + depth down
+  const x = originX + x_ft * scaleX + y_ft * scaleY * 0.45
+  const y = originY + depth * scaleDepth - y_ft * scaleY * 0.55
   return { x, y }
 }
 
@@ -30,147 +33,138 @@ export function renderOblique(
   const w = canvas.width
   const h = canvas.height
   const plan = state.profile
-  const padL = 56
-  const padR = 28
-  const padT = 36
-  const padB = 36
+  const cl = plan.centerline
+  const padL = 40
+  const padR = 24
+  const padT = 32
+  const padB = 32
   const plotW = w - padL - padR
   const plotH = h - padT - padB
-  const scaleSta = plotW / plan.length_ft
-  const scaleLat = plotW / 48
+
+  let minX = 0
+  let maxX = plan.length_ft
+  let minY = -20
+  let maxY = 20
+  for (const s of cl) {
+    minX = Math.min(minX, s.x_ft)
+    maxX = Math.max(maxX, s.x_ft)
+    minY = Math.min(minY, s.y_ft)
+    maxY = Math.max(maxY, s.y_ft)
+  }
+  const spanX = Math.max(40, maxX - minX + 16)
+  const spanY = Math.max(28, maxY - minY + 16)
+  const scaleX = plotW / spanX
+  const scaleY = plotW / (spanY * 2.2)
   const scaleDepth = plotH / 14
-  const originX = padL
-  const originY = padT + 8
+  const originX = padL - minX * scaleX + 8
+  const originY = padT + 10
 
   ctx.fillStyle = '#12181f'
   ctx.fillRect(0, 0, w, h)
 
+  // Grid
   ctx.strokeStyle = '#1e2a34'
   ctx.lineWidth = 1
-  for (let s = 0; s <= plan.length_ft; s += 20) {
-    const a = project(s, -12, 0, originX, originY, scaleSta, scaleLat, scaleDepth)
-    const b = project(s, 12, 0, originX, originY, scaleSta, scaleLat, scaleDepth)
-    ctx.beginPath()
-    ctx.moveTo(a.x, a.y)
-    ctx.lineTo(b.x, b.y)
-    ctx.stroke()
-  }
-  for (let lat = -12; lat <= 12; lat += 4) {
-    const a = project(0, lat, 0, originX, originY, scaleSta, scaleLat, scaleDepth)
-    const b = project(
-      plan.length_ft,
-      lat,
-      0,
-      originX,
-      originY,
-      scaleSta,
-      scaleLat,
-      scaleDepth,
-    )
+  for (let gx = Math.floor(minX / 20) * 20; gx <= maxX + 20; gx += 20) {
+    const a = project(gx, minY, 0, originX, originY, scaleX, scaleY, scaleDepth)
+    const b = project(gx, maxY, 0, originX, originY, scaleX, scaleY, scaleDepth)
     ctx.beginPath()
     ctx.moveTo(a.x, a.y)
     ctx.lineTo(b.x, b.y)
     ctx.stroke()
   }
 
-  ctx.strokeStyle = 'rgba(94, 200, 200, 0.35)'
+  // Curved centerline at grade
+  ctx.strokeStyle = 'rgba(94, 200, 200, 0.55)'
+  ctx.lineWidth = 2
+  ctx.beginPath()
+  cl.forEach((s, i) => {
+    const p = project(s.x_ft, s.y_ft, 0, originX, originY, scaleX, scaleY, scaleDepth)
+    if (i === 0) ctx.moveTo(p.x, p.y)
+    else ctx.lineTo(p.x, p.y)
+  })
+  ctx.stroke()
+
+  // Ideal depth guide along curve
+  ctx.strokeStyle = 'rgba(94, 200, 200, 0.3)'
   ctx.setLineDash([5, 4])
   ctx.lineWidth = 1.5
   ctx.beginPath()
-  for (let s = 0; s <= plan.length_ft; s += 2) {
-    const d = idealDepthAtSta(plan, s)
-    const p = project(s, 0, d, originX, originY, scaleSta, scaleLat, scaleDepth)
-    if (s === 0) ctx.moveTo(p.x, p.y)
+  for (let i = 0; i < cl.length; i++) {
+    const s = cl[i]
+    const d = idealDepthAtSta(plan, s.sta_ft)
+    const p = project(s.x_ft, s.y_ft, d, originX, originY, scaleX, scaleY, scaleDepth)
+    if (i === 0) ctx.moveTo(p.x, p.y)
     else ctx.lineTo(p.x, p.y)
   }
   ctx.stroke()
   ctx.setLineDash([])
 
+  // Rod ticks
+  const rodLen = state.rodLength_ft || ROD_LENGTH_FT
+  ctx.fillStyle = '#6b7c88'
+  ctx.font = '8px ui-monospace, monospace'
+  for (let r = 1; r < state.rodTotal; r++) {
+    const sta = r * rodLen
+    if (sta >= plan.length_ft) break
+    const c = centerlineAt(cl, sta)
+    const p = project(c.x_ft, c.y_ft, 0, originX, originY, scaleX, scaleY, scaleDepth)
+    ctx.fillText(`R${r + 1}`, p.x + 2, p.y - 4)
+  }
+
   ctx.fillStyle = '#5ec8c8'
   ctx.font = 'bold 11px system-ui, sans-serif'
-  const entry = project(2, 0, 0.5, originX, originY, scaleSta, scaleLat, scaleDepth)
-  ctx.fillText('ENTRY', entry.x, entry.y - 10)
-  const day = project(
-    plan.length_ft * 0.92,
-    0,
-    0.4,
-    originX,
-    originY,
-    scaleSta,
-    scaleLat,
-    scaleDepth,
-  )
-  ctx.fillText('DAYLIGHT', day.x - 20, day.y - 10)
+  const entry = centerlineAt(cl, 2)
+  const ep = project(entry.x_ft, entry.y_ft, 0.5, originX, originY, scaleX, scaleY, scaleDepth)
+  ctx.fillText('ENTRY', ep.x, ep.y - 10)
+  const day = centerlineAt(cl, plan.length_ft * 0.92)
+  const dp = project(day.x_ft, day.y_ft, 0.4, originX, originY, scaleX, scaleY, scaleDepth)
+  ctx.fillText('DAYLIGHT', dp.x - 20, dp.y - 10)
 
   ctx.fillStyle = '#9fb3c3'
-  ctx.font = 'bold 12px system-ui, sans-serif'
-  const leftLab = project(
-    plan.length_ft * 0.5,
-    -10,
-    0,
-    originX,
-    originY,
-    scaleSta,
-    scaleLat,
-    scaleDepth,
-  )
-  const rightLab = project(
-    plan.length_ft * 0.5,
-    10,
-    0,
-    originX,
-    originY,
-    scaleSta,
-    scaleLat,
-    scaleDepth,
-  )
-  ctx.fillText('← LEFT (9)', leftLab.x - 36, leftLab.y)
-  ctx.fillText('RIGHT (3) →', rightLab.x - 10, rightLab.y)
+  ctx.font = 'bold 11px system-ui, sans-serif'
+  ctx.fillText('← L (9)   curved ROW   R (3) →', padL, padT - 12)
 
+  // Utilities
   for (const mark of plan.apwa) {
-    const color =
-      mark.color === 'yellow'
-        ? '#e6c84a'
-        : mark.color === 'blue'
-          ? '#4a9fe6'
-          : '#aaa'
-    const sta = mark.sta_ft ?? plan.length_ft * 0.35
-    const depth = mark.depth_ft
+    const color = apwaColorHex(mark.color)
     if (mark.role === 'parallel_brief_only') {
       ctx.strokeStyle = color
       ctx.lineWidth = 3
-      ctx.globalAlpha = 0.85
-      const a = project(
-        plan.length_ft * 0.15,
-        8,
-        depth,
-        originX,
-        originY,
-        scaleSta,
-        scaleLat,
-        scaleDepth,
-      )
-      const b = project(
-        plan.length_ft * 0.9,
-        8,
-        depth,
-        originX,
-        originY,
-        scaleSta,
-        scaleLat,
-        scaleDepth,
-      )
+      ctx.globalAlpha = 0.75
       ctx.beginPath()
-      ctx.moveTo(a.x, a.y)
-      ctx.lineTo(b.x, b.y)
+      for (let i = 0; i < cl.length; i++) {
+        const s = cl[i]
+        if (s.sta_ft < plan.length_ft * 0.15 || s.sta_ft > plan.length_ft * 0.9)
+          continue
+        const rad = (s.headingDeg * Math.PI) / 180
+        const nx = Math.sin(rad) * 8
+        const ny = -Math.cos(rad) * 8
+        const p = project(
+          s.x_ft + nx,
+          s.y_ft + ny,
+          mark.depth_ft,
+          originX,
+          originY,
+          scaleX,
+          scaleY,
+          scaleDepth,
+        )
+        if (i === 0 || s.sta_ft <= plan.length_ft * 0.15 + 1) ctx.moveTo(p.x, p.y)
+        else ctx.lineTo(p.x, p.y)
+      }
       ctx.stroke()
       ctx.globalAlpha = 1
       ctx.fillStyle = color
       ctx.font = '9px system-ui'
-      ctx.fillText('WATER (parallel)', a.x, a.y - 6)
+      const mid = centerlineAt(cl, plan.length_ft * 0.4)
+      const mp = project(mid.x_ft + 8, mid.y_ft, mark.depth_ft, originX, originY, scaleX, scaleY, scaleDepth)
+      ctx.fillText('WATER (parallel)', mp.x, mp.y - 6)
       continue
     }
-    const p = project(sta, 0, depth, originX, originY, scaleSta, scaleLat, scaleDepth)
+    const sta = mark.sta_ft ?? plan.length_ft * 0.35
+    const c = centerlineAt(cl, sta)
+    const p = project(c.x_ft, c.y_ft, mark.depth_ft, originX, originY, scaleX, scaleY, scaleDepth)
     ctx.fillStyle = color
     ctx.beginPath()
     ctx.arc(p.x, p.y, 7, 0, Math.PI * 2)
@@ -185,21 +179,15 @@ export function renderOblique(
     ctx.globalAlpha = 1
   }
 
+  // Path
   if (state.path.length > 1) {
     ctx.strokeStyle = '#c4a35a'
     ctx.lineWidth = 3
     ctx.beginPath()
     state.path.forEach((pt, i) => {
-      const p = project(
-        pt.sta_ft,
-        pt.offset_ft ?? 0,
-        pt.depth_ft,
-        originX,
-        originY,
-        scaleSta,
-        scaleLat,
-        scaleDepth,
-      )
+      const x = pt.x_ft ?? centerlineAt(cl, pt.sta_ft).x_ft
+      const y = pt.y_ft ?? centerlineAt(cl, pt.sta_ft).y_ft
+      const p = project(x, y, pt.depth_ft, originX, originY, scaleX, scaleY, scaleDepth)
       if (i === 0) ctx.moveTo(p.x, p.y)
       else ctx.lineTo(p.x, p.y)
     })
@@ -207,13 +195,13 @@ export function renderOblique(
   }
 
   const head = project(
-    state.station_ft,
-    state.lateral_ft,
+    state.worldX_ft,
+    state.worldY_ft,
     state.coverDepth_ft,
     originX,
     originY,
-    scaleSta,
-    scaleLat,
+    scaleX,
+    scaleY,
     scaleDepth,
   )
   ctx.fillStyle = '#e8c36a'
@@ -240,7 +228,7 @@ export function renderOblique(
   ctx.fillStyle = '#9fb3c3'
   ctx.font = '12px ui-monospace, monospace'
   ctx.fillText(
-    `LOCATOR MAP  sta ${state.station_ft.toFixed(0)} ft  L/R ${state.lateral_ft >= 0 ? '+' : ''}${state.lateral_ft.toFixed(1)} ft  depth ${state.coverDepth_ft.toFixed(1)} ft`,
+    `OBLIQUE  Rod ${state.rodIndex}/${state.rodTotal}  sta ${state.station_ft.toFixed(0)}  L/R ${state.lateral_ft >= 0 ? '+' : ''}${state.lateral_ft.toFixed(1)}  depth ${state.coverDepth_ft.toFixed(1)}`,
     padL,
     h - 10,
   )

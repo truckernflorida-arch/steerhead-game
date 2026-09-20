@@ -73,6 +73,23 @@ export function render(canvas: HTMLCanvasElement, state: GameState): void {
   ctx.fillText('HOLD GRADE', xOf(plan.length_ft * 0.4), padT - 10)
   ctx.fillText('DAYLIGHT', xOf(plan.length_ft * 0.88), padT - 10)
 
+  // 10 ft rod segment ticks on profile
+  const rodLen = state.rodLength_ft || 10
+  ctx.strokeStyle = 'rgba(94, 200, 200, 0.25)'
+  ctx.lineWidth = 1
+  ctx.fillStyle = '#5a6a74'
+  ctx.font = '8px ui-monospace, monospace'
+  for (let r = 1; r < state.rodTotal; r++) {
+    const sta = r * rodLen
+    if (sta >= plan.length_ft) break
+    const x = xOf(sta)
+    ctx.beginPath()
+    ctx.moveTo(x, padT)
+    ctx.lineTo(x, padT + plotH)
+    ctx.stroke()
+    ctx.fillText(`R${r + 1}`, x + 2, padT + 10)
+  }
+
   for (const mark of plan.apwa) {
     const color =
       mark.color === 'yellow'
@@ -156,7 +173,7 @@ export function render(canvas: HTMLCanvasElement, state: GameState): void {
   ctx.fillStyle = '#9fb3c3'
   ctx.font = '12px ui-monospace, monospace'
   ctx.fillText(
-    `${state.levelId}  sta ${state.station_ft.toFixed(0)} ft  depth ${state.coverDepth_ft.toFixed(1)} ft  pitch ${state.pitchDeg.toFixed(1)}°`,
+    `${state.levelId}  Rod ${state.rodIndex}/${state.rodTotal}  sta ${state.station_ft.toFixed(0)} ft  depth ${state.coverDepth_ft.toFixed(1)} ft  pitch ${state.pitchDeg.toFixed(1)}° → tgt ${state.targetPitchDeg.toFixed(1)}°`,
     padL,
     h - 8,
   )

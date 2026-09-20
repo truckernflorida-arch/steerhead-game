@@ -996,3 +996,186 @@ code {
     font-size: 2rem;
   }
 }
+
+/* --- Crew workflow: rig pitch, target steering, ground map --- */
+.rig-pitch {
+  margin-bottom: 0.55rem;
+  text-align: left;
+}
+
+.rig-pitch label {
+  display: block;
+  font-size: 0.72rem;
+  color: #8a9aa6;
+  margin-bottom: 0.35rem;
+}
+
+.rig-pitch label strong {
+  color: #e6c84a;
+  font-variant-numeric: tabular-nums;
+}
+
+.rig-pitch-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.rig-pitch-row input[type='range'] {
+  flex: 1 1 auto;
+  min-width: 0;
+  accent-color: #5ec8c8;
+}
+
+.rig-pitch-hint {
+  margin-top: 0.35rem !important;
+}
+
+.spud-row {
+  max-width: 260px;
+}
+
+.locator-mode {
+  font-size: 0.62rem;
+  letter-spacing: 0.08em;
+  color: #e6c84a;
+  font-weight: 700;
+}
+
+.locator-steer {
+  background: #0a1016;
+  border: 1px solid #2c3640;
+  border-radius: 6px;
+  padding: 0.4rem 0.55rem;
+  margin-bottom: 0.45rem;
+}
+
+.locator-steer-in {
+  border-color: #3d6a4a;
+}
+
+.locator-steer-high,
+.locator-steer-low {
+  border-color: #e6c84a;
+}
+
+.locator-steer-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem 0.75rem;
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+  color: #c5d4de;
+}
+
+.locator-cue {
+  margin: 0.3rem 0 0;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #5ec8c8;
+}
+
+.locator-path-curve {
+  border-radius: 40% 40% 0 0 / 100% 100% 0 0;
+  transform: scaleY(0.55);
+}
+
+.falcon-mode-pill {
+  font-size: 0.52rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #0a1016;
+  background: #e6c84a;
+  border-radius: 3px;
+  padding: 0.12rem 0.35rem;
+}
+
+.falcon-target-steer {
+  background: #0a1016;
+  border: 1px solid #1e2830;
+  border-radius: 6px;
+  padding: 0.4rem 0.5rem 0.45rem;
+}
+
+.falcon-band-in {
+  border-color: #3d6a4a;
+  box-shadow: inset 0 0 12px rgba(109, 206, 138, 0.12);
+}
+
+.falcon-band-high,
+.falcon-band-low {
+  border-color: #e6c84a;
+  box-shadow: inset 0 0 12px rgba(230, 200, 74, 0.15);
+}
+
+.falcon-tgt-row {
+  display: flex;
+  gap: 0.35rem;
+  margin: 0.25rem 0;
+}
+
+.falcon-tgt-cell {
+  flex: 1 1 0;
+  min-width: 0;
+  text-align: center;
+}
+
+.falcon-tgt-val {
+  display: block;
+  font-variant-numeric: tabular-nums;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #e6c84a;
+}
+
+.falcon-pitch-sm {
+  font-size: 1.05rem !important;
+}
+
+.falcon-delta {
+  display: block;
+  font-variant-numeric: tabular-nums;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: #9fd4ff;
+}
+
+.falcon-cue {
+  margin: 0.2rem 0 0;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #5ec8c8;
+  text-align: center;
+}
+
+.falcon-clock-suggest {
+  fill: #e6c84a !important;
+  font-size: 10px !important;
+}
+
+.ground-canvas {
+  background: #1a2228;
+}
+
+.locator-head {
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+@media (max-width: 720px) {
+  .spud-row {
+    max-width: none;
+  }
+  .play-top {
+    flex-direction: column;
+  }
+  .falcon-tgt-row {
+    flex-wrap: wrap;
+  }
+  .map-tab {
+    flex: 1 1 auto;
+    text-align: center;
+  }
+}

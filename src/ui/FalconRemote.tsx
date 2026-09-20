@@ -1,14 +1,12 @@
 /**
- * Falcon F5–style remote display — pitch / clock-roll / depth / entry grade.
+ * Falcon F5–style remote — pitch / clock / depth + TARGET STEERING mode.
  * Reads TickSnap.hud only; never invents TF_* / RV_*.
- * Concept: DCI Falcon F5 walkover remote bezel.
  */
 import type { TickSnap } from '#/game/ticksnap'
 import { angleDegToHour } from '#/game/input/clock'
 
 type Props = { snap: TickSnap }
 
-/** Pitch (+ dive into ground, − climb) → up/down sense for the bezel. */
 function pitchSense(pitchDeg: number): { arrow: string; label: string } {
   if (pitchDeg > 0.15) return { arrow: '↓', label: 'DIVE' }
   if (pitchDeg < -0.15) return { arrow: '↑', label: 'CLIMB' }
@@ -22,17 +20,26 @@ export function FalconRemote({ snap }: Props) {
   const clockDeg = h.clockAngleDeg ?? 180
   const hour = h.clockHour ?? angleDegToHour(clockDeg)
   const bars = h.signalBars ?? 5
-  /** Entry / grade into ground — same physics pitch (path inclination). */
-  const entryGrade = pitch
+  const ts = h.targetSteering
+  const targetPitch = ts?.targetPitchDeg ?? h.targetPitchDeg ?? pitch
   const sense = pitchSense(pitch)
   const handRad = ((clockDeg - 90) * Math.PI) / 180
   const hx = 40 + Math.cos(handRad) * 26
   const hy = 40 + Math.sin(handRad) * 26
+  const bandClass =
+    ts?.pitchBand === 'in'
+      ? 'falcon-band-in'
+      : ts?.pitchBand === 'high'
+        ? 'falcon-band-high'
+        : 'falcon-band-low'
 
   return (
     <section className="falcon-remote" aria-label="Falcon F5 style remote">
       <header className="falcon-bezel-head">
         <span className="falcon-brand">FALCON F5</span>
+        <span className="falcon-mode-pill" title="Primary status mode">
+          TARGET STEERING
+        </span>
         <span className="falcon-stubs" aria-hidden>
           <span className="falcon-batt" title="Battery">
             <i style={{ width: '72%' }} />
@@ -46,6 +53,37 @@ export function FalconRemote({ snap }: Props) {
       </header>
 
       <div className="falcon-screen">
+        <div className={`falcon-target-steer ${bandClass}`}>
+          <span className="falcon-label">TARGET vs ACTUAL</span>
+          <div className="falcon-tgt-row">
+            <div className="falcon-tgt-cell">
+              <span className="falcon-label">TARGET</span>
+              <span className="falcon-tgt-val">
+                {targetPitch >= 0 ? '+' : ''}
+                {targetPitch.toFixed(1)}°
+              </span>
+            </div>
+            <div className="falcon-tgt-cell">
+              <span className="falcon-label">ACTUAL</span>
+              <span className="falcon-pitch-val falcon-pitch-sm">
+                {pitch >= 0 ? '+' : ''}
+                {pitch.toFixed(1)}°
+              </span>
+            </div>
+            <div className="falcon-tgt-cell">
+              <span className="falcon-label">Δ</span>
+              <span className="falcon-delta">
+                {(ts?.pitchErrorDeg ?? pitch - targetPitch) >= 0 ? '+' : ''}
+                {(ts?.pitchErrorDeg ?? pitch - targetPitch).toFixed(1)}°
+              </span>
+            </div>
+          </div>
+          <p className="falcon-cue" role="status">
+            {ts?.cueLabel ?? 'HOLD · ON TARGET'}
+            {ts?.suggestHour != null ? ` · → ${ts.suggestHour} o'clock` : ''}
+          </p>
+        </div>
+
         <div className="falcon-pitch-block">
           <span className="falcon-label">PITCH</span>
           <div className="falcon-pitch-row">
@@ -70,6 +108,7 @@ export function FalconRemote({ snap }: Props) {
                 const a = ((n % 12) * 30 - 90) * (Math.PI / 180)
                 const tx = 40 + Math.cos(a) * 22
                 const ty = 40 + Math.sin(a) * 22
+                const suggest = ts?.suggestHour === n
                 return (
                   <text
                     key={n}
@@ -77,7 +116,9 @@ export function FalconRemote({ snap }: Props) {
                     y={ty}
                     textAnchor="middle"
                     dominantBaseline="middle"
-                    className="falcon-clock-num"
+                    className={
+                      suggest ? 'falcon-clock-num falcon-clock-suggest' : 'falcon-clock-num'
+                    }
                   >
                     {n}
                   </text>
@@ -111,17 +152,30 @@ export function FalconRemote({ snap }: Props) {
             <div className="falcon-meter">
               <span className="falcon-label">ENTRY / GRADE</span>
               <span className="falcon-entry">
-                {entryGrade >= 0 ? '+' : ''}
-                {entryGrade.toFixed(1)}
+                {(h.entryPitchDeg ?? pitch) >= 0 ? '+' : ''}
+                {(h.entryPitchDeg ?? pitch).toFixed(1)}
                 <span className="falcon-unit">°</span>
               </span>
-              <span className="falcon-sub">into ground</span>
+              <span className="falcon-sub">rig setup</span>
+            </div>
+            <div className="falcon-meter">
+              <span className="falcon-label">ROD</span>
+              <span className="falcon-depth">
+                {h.rodIndex ?? 1}
+                <span className="falcon-unit">
+                  {' '}
+                  / {h.rodTotal ?? 12}
+                </span>
+              </span>
+              <span className="falcon-sub">{h.rodLengthFt ?? 10} ft rods</span>
             </div>
           </div>
         </div>
       </div>
 
-      <footer className="falcon-foot">REMOTE · SNAP ONLY · NO FAIL INVENT</footer>
+      <footer className="falcon-foot">
+        TARGET STEERING · SNAP ONLY · NO FAIL INVENT
+      </footer>
     </section>
   )
 }

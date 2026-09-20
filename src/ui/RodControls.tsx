@@ -1,6 +1,6 @@
 /**
  * Rod / push marker + deliberate push + Just drill (straight).
- * Plan-first: push/drill disabled until Spud (pilot phase).
+ * Shows Rod N of M (10 ft rods). Plan-first: push/drill until Spud.
  */
 import { angleDegToHour } from '#/game/input/clock'
 import { DEFAULT_PUSH_FT, ROD_LENGTH_FT } from '#/game/state'
@@ -11,6 +11,8 @@ type Props = {
   onPushLengthFt: (ft: number) => void
   pendingPushFt: number
   phase: string
+  rodIndex: number
+  rodTotal: number
   /** Discrete steered push at current clock */
   onPushStep: () => void
   /** Hold: straight drill (no clock steer) */
@@ -27,6 +29,8 @@ export function RodControls({
   onPushLengthFt,
   pendingPushFt,
   phase,
+  rodIndex,
+  rodTotal,
   onPushStep,
   onDrillDown,
   onDrillUp,
@@ -41,7 +45,8 @@ export function RodControls({
     <section className="rod-controls" aria-label="Rod and push controls">
       <div className="rod-marker" role="status">
         <span className="rod-marker-main">
-          {ROD_LENGTH_FT} ft rod · push {pushLengthFt} ft @ {hour} o&apos;clock
+          Rod {rodIndex} of {rodTotal} · {ROD_LENGTH_FT} ft rod · push{' '}
+          {pushLengthFt} ft @ {hour} o&apos;clock
         </span>
         {pushing ? (
           <span className="rod-marker-pending">
@@ -49,7 +54,7 @@ export function RodControls({
           </span>
         ) : null}
         {drillActive ? (
-          <span className="rod-marker-drill">Just drill — straight</span>
+          <span className="rod-marker-drill">Just drill — straight / level</span>
         ) : null}
       </div>
 
@@ -101,17 +106,17 @@ export function RodControls({
           onPointerCancel={onDrillUp}
           title={
             piloting
-              ? 'Hold: straight drill (no steer / clock at 12 feel)'
+              ? 'Hold: straight / level drill (no steer)'
               : 'Spud in first'
           }
         >
-          Just drill (straight)
+          Just drill (level / straight)
         </button>
       </div>
       <p className="rod-hint">
-        Steered push uses the clock face. Just drill holds straight (spin &amp;
-        shove) — continuous thrust also via slider / W. Default push{' '}
-        {DEFAULT_PUSH_FT} ft.
+        Each {ROD_LENGTH_FT} ft rod: choose dive / level / steer via clock +
+        optional {DEFAULT_PUSH_FT} ft pushes. Target steering on Falcon shows
+        pitch band vs plan. Continuous thrust via slider / W after Spud.
       </p>
     </section>
   )

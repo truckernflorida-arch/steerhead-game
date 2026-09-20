@@ -1,6 +1,7 @@
 /**
  * InputFrame aggregate — keyboard + touch + clock-face rod rotation.
  * Discrete rod push + just-drill (straight) are first-class.
+ * Rig entry pitch set in brief before Spud.
  */
 export type InputFrame = {
   /** Steer / pitch -1..1 (dive +) */
@@ -14,12 +15,14 @@ export type InputFrame = {
   keys: Record<string, boolean>
   startPush?: boolean
   retry?: boolean
-  /** Edge: queue one discrete push of pushLengthFt at current clock */
+  /** Edge: consume one discrete push of pushLengthFt at current clock */
   pushStep?: boolean
   /** Hold: straight drill — no clock steer / spin & shove */
   drillStraight?: boolean
   /** Rod push step length (ft); default 2 */
   pushLengthFt?: number
+  /** Rig / bit entry pitch (° dive) — brief setup, seeds Spud pitch */
+  entryPitchDeg?: number
 }
 
 export function createEmptyInput(): InputFrame {

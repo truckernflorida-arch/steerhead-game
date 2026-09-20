@@ -17,31 +17,31 @@ export function FlowOverlay({ snap, level, onRetry }: Props) {
       <aside className="flow-plan" aria-label="Job plan">
         <h2>{level.bibleTitle}</h2>
         <p className="flow-lesson">
-          Lesson 1 · Read the ground · Set clock · Then push
+          Lesson 1 · Curved road ROW · Locates · Target steering
         </p>
         <p className="flow-callout">
-          Set the clock face before your first rod / push. Clock and locator stay
-          live — nothing advances until you Spud in.
+          Set <strong>rig entry pitch</strong>, then clock face. Locates are
+          painted on the Ground locate map. Nothing advances until you Spud in.
         </p>
         <ul className="flow-list">
           <li>
             Soil: <strong>Dirt / light_fill</strong> (mud locked green)
           </li>
           <li>
-            Shot: {level.bore?.length_ft ?? 120} ft · target depth{' '}
-            {level.bore?.targetDepth_ft ?? 6} ft
+            Shot: {level.bore?.length_ft ?? 120} ft curved ROW · target depth{' '}
+            {level.bore?.targetDepth_ft ?? 6} ft · 10 ft rods
           </li>
-          <li>APWA: yellow gas clearance · blue water (brief)</li>
+          <li>APWA: yellow gas on road · blue water parallel (brief)</li>
           <li>
             Pass: exit window · gradeHold ≥70% · ≤1 panic dogleg warn
           </li>
           <li>Fail teaches steer death — not the dirt</li>
         </ul>
         <ol className="flow-steps">
-          <li>Rotate first rod — set clock face (drag or 1–12)</li>
-          <li>Match locator depth/pitch to plan</li>
-          <li>Spud in — then Push 2 ft @ clock, or hold Just drill (straight)</li>
-          <li>Switch to Locator map (L/R) to watch walk left/right</li>
+          <li>Raise/lower rig — set entry pitch (slider)</li>
+          <li>Set clock face (drag or 1–12)</li>
+          <li>Spud in — then rod pushes along the curve</li>
+          <li>Watch TARGET STEERING on Falcon + Ground locate map</li>
         </ol>
       </aside>
     )

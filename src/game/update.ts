@@ -1,11 +1,18 @@
 /**
- * Lesson 1 update: dirt / light_fill feel + profile path + daylight.
+ * Lesson 1 update: dirt / light_fill feel + curved ROW path + daylight.
  * Discrete rod push (default 2 ft) + Just drill (straight) + lateral walk.
+ * Rig entry pitch seeds Spud; rods advance along curve.
  * Thrust/ROP + clock/keyboard steer + mild walkBias; taught-fail TF_PANIC_DOGLEG.
  * Secondary TF_PACKED_HEAD / TF_FRAC_THIN only if player kills GPM.
  */
 import type { GameOutcome, GamePhase, GameState } from './state'
-import { DEFAULT_PUSH_FT } from './state'
+import {
+  DEFAULT_ENTRY_PITCH_DEG,
+  DEFAULT_PUSH_FT,
+  ENTRY_PITCH_MAX,
+  ENTRY_PITCH_MIN,
+  ROD_LENGTH_FT,
+} from './state'
 import type { InputFrame } from './input'
 import { clockAngleToYaw } from './input/clock'
 import {
@@ -19,6 +26,12 @@ import {
   M_TO_FT,
   FT_TO_M,
 } from './bore/profile'
+import { worldFromStation } from './bore/centerline'
+import {
+  idealPitchAtSta,
+  rodIndexFromStation,
+  rodTotalFromLength,
+} from './bore/targetSteering'
 import { scoreLesson1 } from './score/lesson1'
 
 function lerp(a: number, b: number, t: number): number {
@@ -27,6 +40,10 @@ function lerp(a: number, b: number, t: number): number {
 
 function clamp01(v: number): number {
   return Math.min(1, Math.max(0, v))
+}
+
+function clampEntryPitch(v: number): number {
+  return Math.min(ENTRY_PITCH_MAX, Math.max(ENTRY_PITCH_MIN, v))
 }
 
 function finalizeScore(state: GameState): number {
@@ -75,7 +92,16 @@ export function update(
     Math.min(10, input.pushLengthFt ?? state.pushLength_ft ?? DEFAULT_PUSH_FT),
   )
 
+  const entryPitchDeg = clampEntryPitch(
+    input.entryPitchDeg ?? state.entryPitchDeg ?? DEFAULT_ENTRY_PITCH_DEG,
+  )
+  const rodTotal = rodTotalFromLength(
+    state.profile.length_ft,
+    state.rodLength_ft || ROD_LENGTH_FT,
+  )
+
   if (input.retry && state.phase === 'debrief') {
+    const origin = worldFromStation(state.profile.centerline, 0, 0)
     return {
       ...state,
       phase: 'brief',
@@ -84,11 +110,25 @@ export function update(
       station_ft: 0,
       coverDepth_ft: 0.8,
       lateral_ft: 0,
-      pitchDeg: 14,
+      worldX_ft: origin.x_ft,
+      worldY_ft: origin.y_ft,
+      pitchDeg: entryPitchDeg,
+      entryPitchDeg,
+      targetPitchDeg: idealPitchAtSta(state.profile, 0) || entryPitchDeg,
       rop_m_s: 0,
       boreProgress: 0,
-      path: [{ sta_ft: 0, depth_ft: 0.8, offset_ft: 0 }],
+      path: [
+        {
+          sta_ft: 0,
+          depth_ft: 0.8,
+          offset_ft: 0,
+          x_ft: origin.x_ft,
+          y_ft: origin.y_ft,
+        },
+      ],
       clockAngleDeg: input.clockAngleDeg || 180,
+      rodIndex: 1,
+      rodTotal,
       pushLength_ft: pushLen,
       pendingPush_ft: 0,
       drillStraight: false,
@@ -107,11 +147,17 @@ export function update(
 
   if (state.phase === 'brief') {
     if (input.startPush) {
+      // Spud: seed pitch from rig setup entry pitch
       return {
         ...state,
         phase: 'pilot',
         clockAngleDeg: input.clockAngleDeg || state.clockAngleDeg,
         pushLength_ft: pushLen,
+        entryPitchDeg,
+        pitchDeg: entryPitchDeg,
+        targetPitchDeg: idealPitchAtSta(state.profile, 0),
+        rodIndex: 1,
+        rodTotal,
       }
     }
     return {
@@ -119,6 +165,11 @@ export function update(
       t: state.t + Math.max(dt, 0),
       clockAngleDeg: input.clockAngleDeg || state.clockAngleDeg,
       pushLength_ft: pushLen,
+      entryPitchDeg,
+      pitchDeg: entryPitchDeg, // preview on locator / Falcon before Spud
+      targetPitchDeg: idealPitchAtSta(state.profile, 0),
+      rodIndex: 1,
+      rodTotal,
       rop_m_s: 0,
       drillStraight: false,
       pendingPush_ft: 0,
@@ -141,6 +192,12 @@ export function update(
       clockAngleDeg: input.clockAngleDeg || state.clockAngleDeg,
       pendingPush_ft: 0,
       drillStraight: false,
+      targetPitchDeg: idealPitchAtSta(state.profile, state.station_ft),
+      rodIndex: Math.min(
+        rodTotal,
+        rodIndexFromStation(state.station_ft, state.rodLength_ft || ROD_LENGTH_FT),
+      ),
+      rodTotal,
     }
   }
 
@@ -161,11 +218,9 @@ export function update(
   // Continuous thrust (slider / W / Just drill hold) OR discrete push remainder
   let thrust = clamp01(Math.max(input.thrust, input.touchSpeed))
   if (drillStraight) {
-    // Spin & shove teaching: steady straight advance without clock chase
     thrust = Math.max(thrust, 0.55)
   }
   if (pendingPush_ft > 0.01) {
-    // Deliberate rod push: moderate ROP until step consumed
     thrust = Math.max(thrust, 0.55)
   }
 
@@ -181,21 +236,21 @@ export function update(
 
   let ds = rop * Math.max(dt, 0)
 
-  // Cap step so we don't overshoot remaining discrete push
   if (pendingPush_ft > 0.01 && ds > 0) {
     const pending_m = pendingPush_ft * FT_TO_M
     if (ds > pending_m) ds = pending_m
     pendingPush_ft = Math.max(0, pendingPush_ft - ds * M_TO_FT)
   }
 
-  // Just drill: ignore clock pitch/yaw (straight). Keyboard thrash still steers
-  // so TF_PANIC_DOGLEG remains possible if the player hammers A/D.
   const keyboardThrash = Math.max(
     -1,
-    Math.min(1, (input.keys['a'] || input.keys['A'] ? -1 : 0) +
-      (input.keys['d'] || input.keys['D'] ? 1 : 0) +
-      (input.keys['ArrowLeft'] ? -1 : 0) +
-      (input.keys['ArrowRight'] ? 1 : 0)),
+    Math.min(
+      1,
+      (input.keys['a'] || input.keys['A'] ? -1 : 0) +
+        (input.keys['d'] || input.keys['D'] ? 1 : 0) +
+        (input.keys['ArrowLeft'] ? -1 : 0) +
+        (input.keys['ArrowRight'] ? 1 : 0),
+    ),
   )
   let steerInput: number
   let yawInput: number
@@ -215,7 +270,6 @@ export function update(
 
   const walkPhase = state.walkPhase + Math.max(dt, 0)
   const noise = Math.sin(walkPhase * 1.7) * soil.walkNoiseAmp * 0.15 * ds
-  // Mild natural walk on pitch; Just drill keeps bias (soil) but no clock bend
   dPitch += soil.walkBias_deg_m * ds + noise
 
   const pitchDeg = state.pitchDeg + dPitch
@@ -223,7 +277,6 @@ export function update(
 
   const dSta_ft = ds * Math.cos(pitchRad) * M_TO_FT
   const dCover_ft = ds * Math.sin(pitchRad) * M_TO_FT
-  // Lateral walk from clock 3/9 (and soil walkLateral noise)
   const dLat =
     ds *
     M_TO_FT *
@@ -237,6 +290,17 @@ export function update(
   )
   let coverDepth_ft = Math.max(0.05, state.coverDepth_ft + dCover_ft)
   let lateral_ft = Math.max(-20, Math.min(20, state.lateral_ft + dLat))
+
+  const world = worldFromStation(
+    state.profile.centerline,
+    station_ft,
+    lateral_ft,
+  )
+  const targetPitchDeg = idealPitchAtSta(state.profile, station_ft)
+  const rodIndex = Math.min(
+    rodTotal,
+    rodIndexFromStation(station_ft, state.rodLength_ft || ROD_LENGTH_FT),
+  )
 
   const boreProgress =
     state.boreLength_m > 0 ? clamp01(headDepth_m / state.boreLength_m) : 0
@@ -255,6 +319,8 @@ export function update(
       sta_ft: station_ft,
       depth_ft: coverDepth_ft,
       offset_ft: lateral_ft,
+      x_ft: world.x_ft,
+      y_ft: world.y_ft,
     })
     if (path.length > 400) path.shift()
   }
@@ -343,11 +409,17 @@ export function update(
     station_ft,
     coverDepth_ft,
     lateral_ft,
+    worldX_ft: world.x_ft,
+    worldY_ft: world.y_ft,
     pitchDeg,
+    entryPitchDeg: state.entryPitchDeg,
+    targetPitchDeg,
     rop_m_s: rop,
     boreProgress,
     path,
     clockAngleDeg,
+    rodIndex,
+    rodTotal,
     pushLength_ft: pushLen,
     pendingPush_ft,
     drillStraight,

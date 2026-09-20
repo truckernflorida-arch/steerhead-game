@@ -55,6 +55,18 @@ export type ApwaMarkSnap = {
   role?: string
 }
 
+export type TargetSteerSnap = {
+  /** Primary status mode label */
+  mode: 'targetSteering'
+  targetPitchDeg: number
+  actualPitchDeg: number
+  pitchErrorDeg: number
+  pitchBand: 'low' | 'in' | 'high'
+  cueLabel: string
+  suggestHour: number | null
+  lateralCue: 'left' | 'hold' | 'right'
+}
+
 export type TrainerHudVars = {
   mudWeight: number
   viscosity: number
@@ -73,6 +85,16 @@ export type TrainerHudVars = {
   signalBars?: number
   apwa?: ApwaMarkSnap[]
   gradeHoldPct?: number
+  /** Rig setup entry pitch (° dive) */
+  entryPitchDeg?: number
+  /** Ideal pitch from depth plan */
+  targetPitchDeg?: number
+  /** 1-based rod index */
+  rodIndex?: number
+  rodTotal?: number
+  rodLengthFt?: number
+  /** Falcon / locator TARGET STEERING block (snap-only) */
+  targetSteering?: TargetSteerSnap
   // detail
   gel?: number
   packOff?: number
