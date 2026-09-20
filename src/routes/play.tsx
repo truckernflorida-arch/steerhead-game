@@ -1,8 +1,8 @@
 /**
  * Play route — Lesson 1 = S01 Dirt Yard (light_fill / dirt).
- * Crew workflow: rig entry pitch → Spud → 10 ft rods along curved ROW.
+ * Crew workflow: rig entry pitch → drill first rod → clock/push on Rod 2+.
  * Target steering on Falcon/locator · Ground locate map with APWA paint.
- * Brief: set clock + rig pitch first; no auto-run.
+ * Brief: set rig pitch only; first rod is just drill (no clock).
  */
 import { createFileRoute } from '@tanstack/react-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -62,7 +62,6 @@ function PlayPage() {
   const drillStraightRef = useRef(false)
   const pushLengthRef = useRef(DEFAULT_PUSH_FT)
   const entryPitchRef = useRef(DEFAULT_ENTRY_PITCH_DEG)
-  const clockConfirmedRef = useRef(false)
   const stateRef = useRef<GameState>(createGameState(level))
   const [snap, setSnap] = useState<TickSnap>(() =>
     emitFromGameState(emitter.current, stateRef.current),
@@ -70,7 +69,6 @@ function PlayPage() {
   const [detailOpen, setDetailOpen] = useState(false)
   const [touchSpeed, setTouchSpeed] = useState(0)
   const [clockAngle, setClockAngle] = useState(INITIAL_CLOCK_DEG)
-  const [clockConfirmed, setClockConfirmed] = useState(false)
   const [pushLengthFt, setPushLengthFt] = useState(DEFAULT_PUSH_FT)
   const [entryPitchDeg, setEntryPitchDeg] = useState(DEFAULT_ENTRY_PITCH_DEG)
   const [pendingPushFt, setPendingPushFt] = useState(0)
@@ -89,8 +87,6 @@ function PlayPage() {
     emitter.current = createPhysicsEmitter()
     clock.current.setAngleDeg(INITIAL_CLOCK_DEG)
     setClockAngle(INITIAL_CLOCK_DEG)
-    clockConfirmedRef.current = false
-    setClockConfirmed(false)
     touch.current.setSpeed(0)
     setTouchSpeed(0)
     pushLengthRef.current = DEFAULT_PUSH_FT
@@ -134,16 +130,22 @@ function PlayPage() {
       const edge = (k: string) => keys[k] && !prev[k]
 
       const phase = stateRef.current.phase
-      const clockBefore = clock.current.angleDeg
+      const steerUnlocked =
+        stateRef.current.rodIndex >= 2 ||
+        stateRef.current.station_ft >=
+          (stateRef.current.rodLength_ft || 10) - 1e-6
 
-      if (edge('q') || edge('Q')) clock.current.nudge(-15)
-      if (edge('e') || edge('E')) clock.current.nudge(15)
-      for (let h = 1; h <= 9; h++) {
-        if (edge(String(h))) clock.current.setHour(h)
+      // Clock / hour keys only after first rod (HDD: first rod is just drill)
+      if (steerUnlocked) {
+        if (edge('q') || edge('Q')) clock.current.nudge(-15)
+        if (edge('e') || edge('E')) clock.current.nudge(15)
+        for (let h = 1; h <= 9; h++) {
+          if (edge(String(h))) clock.current.setHour(h)
+        }
+        if (edge('0')) clock.current.setHour(10)
+        if (edge('-') || edge('_')) clock.current.setHour(11)
+        if (edge('=') || edge('+')) clock.current.setHour(12)
       }
-      if (edge('0')) clock.current.setHour(10)
-      if (edge('-') || edge('_')) clock.current.setHour(11)
-      if (edge('=') || edge('+')) clock.current.setHour(12)
 
       // Brief: nudge entry pitch with [ / ]
       if (phase === 'brief') {
@@ -161,15 +163,6 @@ function PlayPage() {
           )
           setEntryPitchDeg(entryPitchRef.current)
         }
-      }
-
-      if (
-        phase === 'brief' &&
-        !clockConfirmedRef.current &&
-        clock.current.angleDeg !== clockBefore
-      ) {
-        clockConfirmedRef.current = true
-        setClockConfirmed(true)
       }
 
       let input = createEmptyInput()
@@ -247,13 +240,14 @@ function PlayPage() {
   }
 
   function onClockAngle(deg: number) {
+    const unlocked =
+      stateRef.current.rodIndex >= 2 ||
+      stateRef.current.station_ft >=
+        (stateRef.current.rodLength_ft || 10) - 1e-6
+    if (!unlocked) return
     const a = normalizeAngleDeg(deg)
     clock.current.setAngleDeg(a)
     setClockAngle(a)
-    if (!clockConfirmedRef.current) {
-      clockConfirmedRef.current = true
-      setClockConfirmed(true)
-    }
   }
 
   function onEntryPitch(v: number) {
@@ -272,6 +266,19 @@ function PlayPage() {
 
   function onPushStep() {
     if (stateRef.current.phase !== 'pilot') return
+    // Steered push is Rod 2+ only
+    if (stateRef.current.rodIndex <= 1) return
+    pushStepRef.current = true
+  }
+
+  function onDrillFirstRod() {
+    const s = stateRef.current
+    if (s.phase === 'brief') {
+      startPushRef.current = true
+      return
+    }
+    if (s.phase !== 'pilot' || s.rodIndex > 1) return
+    // Continue / re-shove remaining first rod (straight)
     pushStepRef.current = true
   }
 
@@ -297,8 +304,6 @@ function PlayPage() {
     emitter.current = createPhysicsEmitter()
     clock.current.setAngleDeg(INITIAL_CLOCK_DEG)
     setClockAngle(INITIAL_CLOCK_DEG)
-    clockConfirmedRef.current = false
-    setClockConfirmed(false)
     touch.current.setSpeed(0)
     setTouchSpeed(0)
     pushLengthRef.current = DEFAULT_PUSH_FT
@@ -340,7 +345,18 @@ function PlayPage() {
           <ClockFace
             angleDeg={clockAngle}
             onAngleDeg={onClockAngle}
-            disabled={snap.phase === 'debrief'}
+            disabled={
+              snap.phase === 'debrief' ||
+              snap.phase === 'brief' ||
+              rodIndex <= 1
+            }
+            lockedHint={
+              snap.phase === 'debrief'
+                ? undefined
+                : rodIndex <= 1 || snap.phase === 'brief'
+                  ? 'FIRST ROD — JUST DRILL'
+                  : undefined
+            }
           />
           {inBrief ? (
             <div className="spud-row">
@@ -379,22 +395,21 @@ function PlayPage() {
                   </button>
                 </div>
                 <p className="spud-hint rig-pitch-hint">
-                  Raise/lower machine (or bit) before Spud. Next rods level out
-                  or keep diving per depth plan. Keys [ ]
+                  Raise/lower machine (or bit) before first rod. First rod is
+                  just drill along this pitch — clock unlocks after ~10 ft.
+                  Keys [ ]
                 </p>
               </div>
               <p className="spud-hint">
-                {clockConfirmed
-                  ? 'Clock set — ready to spud in.'
-                  : 'Set clock face first (drag or 1–12), then start push.'}
+                First rod: spin &amp; shove ~10 ft in. No clock or steered push
+                yet.
               </p>
               <button
                 type="button"
                 className="flow-primary spud-btn"
                 onClick={onStartPush}
-                disabled={!clockConfirmed}
               >
-                Spud in / Start push
+                Drill first rod in
               </button>
             </div>
           ) : null}
@@ -413,6 +428,7 @@ function PlayPage() {
         onDrillDown={onDrillDown}
         onDrillUp={onDrillUp}
         drillActive={drillActive}
+        onDrillFirstRod={onDrillFirstRod}
       />
 
       <FlowOverlay snap={snap} level={level} onRetry={onRetry} />
@@ -502,13 +518,19 @@ function PlayPage() {
         />
         {inBrief ? (
           <p className="touch-speed-note">
-            Set rig pitch + clock, then Spud. Thrust stays at 0 until start.
-            Prefer Push 2 ft @ clock for deliberate rod steps.
+            Set rig entry pitch, then Drill first rod in. Thrust stays at 0
+            until start. Clock / Push unlock after the first ~10 ft.
+          </p>
+        ) : rodIndex <= 1 ? (
+          <p className="touch-speed-note">
+            First rod: just drill along entry pitch (no clock). After ~10 ft
+            you can set clock and Push N ft.
           </p>
         ) : (
           <p className="touch-speed-note">
-            Continuous free thrust (Drill). Deliberate 2 ft pushes use the rod
-            buttons above. Falcon TARGET STEERING shows pitch band vs plan.
+            Now you can push / set clock. Continuous thrust (Drill) or
+            deliberate 2 ft pushes. Falcon TARGET STEERING shows pitch band vs
+            plan.
           </p>
         )}
       </div>

@@ -1,6 +1,7 @@
 /**
  * Lesson 1 update: dirt / light_fill feel + curved ROW path + daylight.
  * Discrete rod push (default 2 ft) + Just drill (straight) + lateral walk.
+ * First rod: straight along entry pitch (no clock); clock/push from Rod 2+.
  * Rig entry pitch seeds Spud; rods advance along curve.
  * Thrust/ROP + clock/keyboard steer + mild walkBias; taught-fail TF_PANIC_DOGLEG.
  * Secondary TF_PACKED_HEAD / TF_FRAC_THIN only if player kills GPM.
@@ -147,7 +148,8 @@ export function update(
 
   if (state.phase === 'brief') {
     if (input.startPush) {
-      // Spud: seed pitch from rig setup entry pitch
+      // First rod: seed pitch from rig entry; shove ~10 ft straight (no clock)
+      const rodLen = state.rodLength_ft || ROD_LENGTH_FT
       return {
         ...state,
         phase: 'pilot',
@@ -158,6 +160,8 @@ export function update(
         targetPitchDeg: idealPitchAtSta(state.profile, 0),
         rodIndex: 1,
         rodTotal,
+        pendingPush_ft: rodLen,
+        drillStraight: true,
       }
     }
     return {
@@ -210,9 +214,18 @@ export function update(
   const clockAngleDeg = input.clockAngleDeg || state.clockAngleDeg
   const drillStraight = Boolean(input.drillStraight)
 
+  const rodLen = state.rodLength_ft || ROD_LENGTH_FT
+  // First rod (~0–10 ft): straight along entry pitch — no clock steer
+  const onFirstRod = state.station_ft < rodLen - 1e-6
+
   let pendingPush_ft = state.pendingPush_ft
   if (input.pushStep && pendingPush_ft <= 0.01) {
-    pendingPush_ft = pushLen
+    if (onFirstRod) {
+      // First rod: only straight remaining length (no clock push)
+      pendingPush_ft = Math.max(0.5, rodLen - state.station_ft)
+    } else {
+      pendingPush_ft = pushLen
+    }
   }
 
   // Continuous thrust (slider / W / Just drill hold) OR discrete push remainder
@@ -254,7 +267,11 @@ export function update(
   )
   let steerInput: number
   let yawInput: number
-  if (drillStraight) {
+  if (onFirstRod) {
+    // Just drill first rod — hold entry dive; ignore clock / push steer
+    steerInput = 0
+    yawInput = 0
+  } else if (drillStraight) {
     steerInput = keyboardThrash * 0.35
     yawInput = 0
   } else {
@@ -263,25 +280,31 @@ export function update(
   }
 
   const dPitchWanted =
-    ds > 1e-8
-      ? steerInput * soil.steerAuthority * soil.maxSteerDegPerM * ds
-      : 0
-  let dPitch = clampSteerDeltaDeg(dPitchWanted, ds, soil)
+    onFirstRod
+      ? 0
+      : ds > 1e-8
+        ? steerInput * soil.steerAuthority * soil.maxSteerDegPerM * ds
+        : 0
+  let dPitch = onFirstRod ? 0 : clampSteerDeltaDeg(dPitchWanted, ds, soil)
 
   const walkPhase = state.walkPhase + Math.max(dt, 0)
-  const noise = Math.sin(walkPhase * 1.7) * soil.walkNoiseAmp * 0.15 * ds
-  dPitch += soil.walkBias_deg_m * ds + noise
+  if (!onFirstRod) {
+    const noise = Math.sin(walkPhase * 1.7) * soil.walkNoiseAmp * 0.15 * ds
+    dPitch += soil.walkBias_deg_m * ds + noise
+  }
 
-  const pitchDeg = state.pitchDeg + dPitch
+  // First rod: hold rig entry pitch (level/dive from setup only)
+  const pitchDeg = onFirstRod ? state.entryPitchDeg : state.pitchDeg + dPitch
   const pitchRad = (pitchDeg * Math.PI) / 180
 
   const dSta_ft = ds * Math.cos(pitchRad) * M_TO_FT
   const dCover_ft = ds * Math.sin(pitchRad) * M_TO_FT
-  const dLat =
-    ds *
-    M_TO_FT *
-    (yawInput * soil.steerAuthority * 0.45 +
-      Math.sin(walkPhase * 1.1) * soil.walkLateral * 0.5)
+  const dLat = onFirstRod
+    ? 0
+    : ds *
+      M_TO_FT *
+      (yawInput * soil.steerAuthority * 0.45 +
+        Math.sin(walkPhase * 1.1) * soil.walkLateral * 0.5)
 
   const headDepth_m = Math.min(state.boreLength_m, state.headDepth_m + ds)
   let station_ft = Math.min(
@@ -344,7 +367,8 @@ export function update(
   let ticketScore = state.ticketScore
 
   const bendRate = ds > 1e-4 ? Math.abs(dPitchWanted) / ds : 0
-  const oversteering = bendRate > teach.panicDoglegDegPerM
+  // Panic dogleg is mainly for steered rods (clock push); first rod is straight
+  const oversteering = !onFirstRod && bendRate > teach.panicDoglegDegPerM
 
   if (oversteering) {
     oversteerTimer += Math.max(dt, 0)

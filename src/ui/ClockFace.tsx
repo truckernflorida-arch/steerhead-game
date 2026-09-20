@@ -9,9 +9,16 @@ type Props = {
   angleDeg: number
   onAngleDeg: (deg: number) => void
   disabled?: boolean
+  /** Why the clock is locked (e.g. first rod) */
+  lockedHint?: string
 }
 
-export function ClockFace({ angleDeg, onAngleDeg, disabled }: Props) {
+export function ClockFace({
+  angleDeg,
+  onAngleDeg,
+  disabled,
+  lockedHint,
+}: Props) {
   const svgRef = useRef<SVGSVGElement>(null)
   const dragging = useRef(false)
   const hour = angleDegToHour(angleDeg)
@@ -119,9 +126,16 @@ export function ClockFace({ angleDeg, onAngleDeg, disabled }: Props) {
         <circle cx="100" cy="100" r="5" className="clock-hub" />
       </svg>
       <p className="clock-caption">
-        ROTATE TO SET STEER · <strong>{hour} O&apos;CLOCK</strong>
+        {disabled && lockedHint
+          ? lockedHint
+          : 'ROTATE TO SET STEER'}{' '}
+        · <strong>{hour} O&apos;CLOCK</strong>
       </p>
-      <p className="clock-hint">Drag · Q/E nudge · 1–9,0 hours · A/D augment</p>
+      <p className="clock-hint">
+        {disabled && lockedHint
+          ? 'Clock / push unlock after first rod (~10 ft)'
+          : 'Drag · Q/E nudge · 1–9,0 hours · A/D augment'}
+      </p>
     </div>
   )
 }

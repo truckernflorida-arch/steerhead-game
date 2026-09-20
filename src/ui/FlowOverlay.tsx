@@ -20,8 +20,9 @@ export function FlowOverlay({ snap, level, onRetry }: Props) {
           Lesson 1 · Curved road ROW · Locates · Target steering
         </p>
         <p className="flow-callout">
-          Set <strong>rig entry pitch</strong>, then clock face. Locates are
-          painted on the Ground locate map. Nothing advances until you Spud in.
+          Set <strong>rig entry pitch</strong>, then drill the first rod in
+          (just drill — no clock). Locates are painted on the Ground locate
+          map. Clock / push steering unlocks after rod 1 (~10 ft).
         </p>
         <ul className="flow-list">
           <li>
@@ -39,8 +40,8 @@ export function FlowOverlay({ snap, level, onRetry }: Props) {
         </ul>
         <ol className="flow-steps">
           <li>Raise/lower rig — set entry pitch (slider)</li>
-          <li>Set clock face (drag or 1–12)</li>
-          <li>Spud in — then rod pushes along the curve</li>
+          <li>Drill first rod in — spin &amp; shove ~10 ft (no clock)</li>
+          <li>Rod 2+: set clock + Push N ft along the curve</li>
           <li>Watch TARGET STEERING on Falcon + Ground locate map</li>
         </ol>
       </aside>
