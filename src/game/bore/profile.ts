@@ -31,6 +31,8 @@ export type ApwaMark = {
   type: string
   depth_ft: number
   sta_ft?: number
+  /** Lateral offset from centerline (ft): + right / − left. Offset locates teach clock 3/9. */
+  offset_ft?: number
   clearance?: string
   role?: string
 }
@@ -72,6 +74,7 @@ export function planFromLevel(level: {
       type: String(m.type ?? 'utility'),
       depth_ft: Number(m.depth_ft ?? 4),
       sta_ft: m.sta_ft != null ? Number(m.sta_ft) : undefined,
+      offset_ft: m.offset_ft != null ? Number(m.offset_ft) : undefined,
       clearance: m.clearance != null ? String(m.clearance) : undefined,
       role: m.role != null ? String(m.role) : undefined,
     })

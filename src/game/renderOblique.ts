@@ -163,20 +163,47 @@ export function renderOblique(
       continue
     }
     const sta = mark.sta_ft ?? plan.length_ft * 0.35
+    const offset = mark.offset_ft ?? 0
     const c = centerlineAt(cl, sta)
-    const p = project(c.x_ft, c.y_ft, mark.depth_ft, originX, originY, scaleX, scaleY, scaleDepth)
+    const rad = (c.headingDeg * Math.PI) / 180
+    const nx = Math.sin(rad) * offset
+    const ny = -Math.cos(rad) * offset
+    const p = project(
+      c.x_ft + nx,
+      c.y_ft + ny,
+      mark.depth_ft,
+      originX,
+      originY,
+      scaleX,
+      scaleY,
+      scaleDepth,
+    )
     ctx.fillStyle = color
     ctx.beginPath()
-    ctx.arc(p.x, p.y, 7, 0, Math.PI * 2)
+    ctx.arc(p.x, p.y, Math.abs(offset) > 0.5 ? 9 : 7, 0, Math.PI * 2)
     ctx.fill()
     ctx.font = '9px system-ui'
-    ctx.fillText(mark.type.toUpperCase(), p.x + 10, p.y + 3)
+    const sideTag =
+      Math.abs(offset) < 0.15
+        ? ''
+        : offset > 0
+          ? ` +${offset.toFixed(1)}R`
+          : ` ${offset.toFixed(1)}L`
+    ctx.fillText(`${mark.type.toUpperCase()}${sideTag}`, p.x + 10, p.y + 3)
     ctx.strokeStyle = color
-    ctx.globalAlpha = 0.4
+    ctx.globalAlpha = 0.45
     ctx.setLineDash([3, 3])
-    ctx.strokeRect(p.x - 14, p.y - 10, 28, 20)
+    ctx.strokeRect(p.x - 16, p.y - 12, 32, 24)
     ctx.setLineDash([])
     ctx.globalAlpha = 1
+    // Dash from ROW to offset mark so L/R is obvious
+    if (Math.abs(offset) > 0.4) {
+      const onRow = project(c.x_ft, c.y_ft, mark.depth_ft, originX, originY, scaleX, scaleY, scaleDepth)
+      ctx.beginPath()
+      ctx.moveTo(onRow.x, onRow.y)
+      ctx.lineTo(p.x, p.y)
+      ctx.stroke()
+    }
   }
 
   // Path

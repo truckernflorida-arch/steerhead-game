@@ -146,7 +146,14 @@ export function groundLocatesFromPlan(
       continue
     }
     const sta = m.sta_ft ?? plan.length_ft * 0.35
-    const w = worldFromStation(samples, sta, 0)
+    const offset = m.offset_ft ?? 0
+    const w = worldFromStation(samples, sta, offset)
+    const sideLabel =
+      Math.abs(offset) < 0.15
+        ? 'on ROW'
+        : offset > 0
+          ? `+${offset.toFixed(1)} ft R`
+          : `${offset.toFixed(1)} ft L`
     out.push({
       color: m.color,
       type: m.type,
@@ -154,9 +161,9 @@ export function groundLocatesFromPlan(
       sta_ft: sta,
       x_ft: w.x_ft,
       y_ft: w.y_ft,
-      paintRadius_ft: 3.5,
+      paintRadius_ft: Math.abs(offset) > 0.5 ? 4.2 : 3.5,
       role: m.role,
-      label: `${m.type.toUpperCase()} · ${m.depth_ft.toFixed(1)} ft`,
+      label: `${m.type.toUpperCase()} · ${m.depth_ft.toFixed(1)} ft · ${sideLabel}`,
     })
   }
   return out

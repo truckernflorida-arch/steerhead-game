@@ -53,6 +53,8 @@ export type ApwaMarkSnap = {
   type: string
   depth_ft: number
   sta_ft?: number
+  /** Lateral offset ft (+ right / − left) when locate is offline of ROW */
+  offset_ft?: number
   label: string
   role?: string
 }

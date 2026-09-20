@@ -1,8 +1,9 @@
 /**
  * Locator TARGET STEERING mode — Falcon-style target vs actual pitch/clock cues.
  * Guidance only; fails still come from TickSnap causes (no UI invention).
+ * Lateral: clock 3 = right, 9 = left. Offset locates cue COME LEFT / COME RIGHT.
  */
-import { idealDepthAtSta, type ProfilePlan } from './profile'
+import { idealDepthAtSta, type ApwaMark, type ProfilePlan } from './profile'
 
 /** Ideal pitch (° , + dive) from depth plan slope at station. */
 export function idealPitchAtSta(plan: ProfilePlan, sta_ft: number): number {
@@ -25,11 +26,68 @@ export type SteerCue = {
   lateralCue: 'left' | 'hold' | 'right'
 }
 
+/** Approach window (ft) ahead of an offset locate where L/R teaching cues fire. */
+const HAZARD_APPROACH_FT = 18
+const HAZARD_PAST_FT = 3
+/** Clearance target past the locate envelope (ft beyond LAT_HIT ~2.25). */
+const CLEAR_MARGIN_FT = 1.0
+const LAT_HIT_FT = 2.25
+
+function clearanceScale(clearance?: string): number {
+  if (clearance === 'tight') return 0.75
+  if (clearance === 'wide') return 1.15
+  return 1
+}
+
+/**
+ * If an offset crossing locate is ahead and head is on a collision course,
+ * return the L/R clear direction (clock 9 left / 3 right).
+ */
+export function hazardLateralCue(opts: {
+  station_ft: number
+  coverDepth_ft: number
+  lateral_ft: number
+  apwa: ApwaMark[]
+}): { cue: 'left' | 'right'; mark: ApwaMark } | null {
+  let best: { cue: 'left' | 'right'; mark: ApwaMark; dSta: number } | null =
+    null
+  for (const m of opts.apwa) {
+    if (m.role === 'parallel_brief_only') continue
+    const sta = m.sta_ft
+    if (sta == null || !Number.isFinite(sta)) continue
+    const offset = m.offset_ft ?? 0
+    // Only teach on deliberately offset locates (on-ROW stay depth/pitch problem)
+    if (Math.abs(offset) < 0.4) continue
+    const dSta = sta - opts.station_ft
+    if (dSta < -HAZARD_PAST_FT || dSta > HAZARD_APPROACH_FT) continue
+    const scale = clearanceScale(m.clearance)
+    const latHit = LAT_HIT_FT * scale
+    const depthHit = 1.35 * scale
+    const dDepth = Math.abs(opts.coverDepth_ft - m.depth_ft)
+    // Only cue if depth path would clip (otherwise lateral is free)
+    if (dDepth > depthHit * 1.6) continue
+    const clearLeft = offset - latHit - CLEAR_MARGIN_FT
+    const clearRight = offset + latHit + CLEAR_MARGIN_FT
+    const onCourse =
+      opts.lateral_ft > clearLeft && opts.lateral_ft < clearRight
+    if (!onCourse) continue
+    // Prefer the shorter escape: left of blob vs right of blob
+    const distLeft = Math.abs(opts.lateral_ft - clearLeft)
+    const distRight = Math.abs(opts.lateral_ft - clearRight)
+    const cue: 'left' | 'right' = distLeft <= distRight ? 'left' : 'right'
+    if (!best || dSta < best.dSta) {
+      best = { cue, mark: m, dSta }
+    }
+  }
+  return best ? { cue: best.cue, mark: best.mark } : null
+}
+
 export function buildSteerCue(
   actualPitchDeg: number,
   targetPitchDeg: number,
   lateral_ft: number,
   gradeWindow_deg: number,
+  hazard?: { cue: 'left' | 'right' } | null,
 ): SteerCue {
   const err = actualPitchDeg - targetPitchDeg
   const half = Math.max(0.4, gradeWindow_deg)
@@ -38,13 +96,33 @@ export function buildSteerCue(
   else if (err < -half) pitchBand = 'low' // too flat / climbing vs target
 
   let lateralCue: SteerCue['lateralCue'] = 'hold'
-  if (lateral_ft > 1.0) lateralCue = 'left' // right of CL → steer left (9)
+  if (hazard?.cue === 'left') lateralCue = 'left'
+  else if (hazard?.cue === 'right') lateralCue = 'right'
+  else if (lateral_ft > 1.0) lateralCue = 'left' // right of CL → steer left (9)
   else if (lateral_ft < -1.0) lateralCue = 'right'
 
   // Clock: 6 = dive, 12 = climb/level, 3 = right, 9 = left
   let suggestHour: number | null = null
   let label = 'HOLD · ON TARGET'
-  if (pitchBand === 'high' && lateralCue === 'hold') {
+
+  const hazardPriority = Boolean(hazard?.cue)
+  if (hazardPriority && lateralCue === 'left') {
+    suggestHour = pitchBand === 'high' ? 10 : pitchBand === 'low' ? 8 : 9
+    label =
+      pitchBand === 'in'
+        ? 'COME LEFT · CLEAR LOCATE'
+        : pitchBand === 'high'
+          ? 'COME LEFT + UP'
+          : 'COME LEFT + DOWN'
+  } else if (hazardPriority && lateralCue === 'right') {
+    suggestHour = pitchBand === 'high' ? 2 : pitchBand === 'low' ? 4 : 3
+    label =
+      pitchBand === 'in'
+        ? 'COME RIGHT · CLEAR LOCATE'
+        : pitchBand === 'high'
+          ? 'COME RIGHT + UP'
+          : 'COME RIGHT + DOWN'
+  } else if (pitchBand === 'high' && lateralCue === 'hold') {
     suggestHour = 12
     label = 'STEER UP · LESS DIVE'
   } else if (pitchBand === 'low' && lateralCue === 'hold') {

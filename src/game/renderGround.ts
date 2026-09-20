@@ -126,7 +126,23 @@ export function renderGround(
     if (g.role !== 'parallel_brief_only') {
       ctx.fillStyle = color
       ctx.font = 'bold 10px system-ui, sans-serif'
-      ctx.fillText(g.type.toUpperCase(), sx(g.x_ft) + r + 3, sy(g.y_ft) + 3)
+      const offsetMark = /ft [RL]/.test(g.label)
+      ctx.fillText(
+        offsetMark ? `${g.type.toUpperCase()} (offset)` : g.type.toUpperCase(),
+        sx(g.x_ft) + r + 3,
+        sy(g.y_ft) + 3,
+      )
+      if (offsetMark) {
+        // Crosshair so offset paint is obvious vs on-ROW marks
+        ctx.strokeStyle = color
+        ctx.lineWidth = 1.5
+        ctx.beginPath()
+        ctx.moveTo(sx(g.x_ft) - r - 4, sy(g.y_ft))
+        ctx.lineTo(sx(g.x_ft) + r + 4, sy(g.y_ft))
+        ctx.moveTo(sx(g.x_ft), sy(g.y_ft) - r - 4)
+        ctx.lineTo(sx(g.x_ft), sy(g.y_ft) + r + 4)
+        ctx.stroke()
+      }
     }
   }
 

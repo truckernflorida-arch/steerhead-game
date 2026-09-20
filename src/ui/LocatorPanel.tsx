@@ -64,19 +64,28 @@ export function LocatorPanel({ snap }: Props) {
             left: `${Math.min(92, 8 + (station / lengthGuess) * 80)}%`,
           }}
         />
-        {apwa.map((m, i) => (
-          <div
-            key={`${m.type}-${i}`}
-            className={`apwa-mark apwa-${m.color}`}
-            style={{
-              left: `${m.sta_ft != null ? 8 + (m.sta_ft / lengthGuess) * 80 : 30 + i * 25}%`,
-              top: m.role ? '70%' : '40%',
-            }}
-            title={m.label}
-          >
-            {m.type.slice(0, 1).toUpperCase()}
-          </div>
-        ))}
+        {apwa.map((m, i) => {
+          const offset = m.offset_ft ?? 0
+          // Map L/R: center ~40%, right offset down, left offset up
+          let topPct = 40
+          if (m.role) topPct = 70
+          else if (Math.abs(offset) > 0.15) {
+            topPct = Math.max(12, Math.min(72, 40 + offset * 8))
+          }
+          return (
+            <div
+              key={`${m.type}-${i}`}
+              className={`apwa-mark apwa-${m.color}${Math.abs(offset) > 0.4 ? ' apwa-offset' : ''}`}
+              style={{
+                left: `${m.sta_ft != null ? 8 + (m.sta_ft / lengthGuess) * 80 : 30 + i * 25}%`,
+                top: `${topPct}%`,
+              }}
+              title={m.label}
+            >
+              {m.type.slice(0, 1).toUpperCase()}
+            </div>
+          )
+        })}
       </div>
 
       <div className="locator-readouts">

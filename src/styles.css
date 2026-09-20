@@ -282,6 +282,13 @@ code {
 .apwa-blue {
   background: #4a9fe6;
 }
+.apwa-orange {
+  background: #e6a04a;
+}
+.apwa-mark.apwa-offset {
+  outline: 2px solid #fff6;
+  box-shadow: 0 0 10px #e6c84a88;
+}
 
 .locator-readouts {
   display: grid;
@@ -366,6 +373,10 @@ code {
 .apwa-chip.apwa-blue {
   background: #10283a;
   color: #4a9fe6;
+}
+.apwa-chip.apwa-orange {
+  background: #3a2810;
+  color: #e6a04a;
 }
 
 .clock-face-wrap {

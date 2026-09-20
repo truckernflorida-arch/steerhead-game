@@ -7,7 +7,8 @@ import type { GameState } from '../state'
 import { ROD_LENGTH_FT } from '../state'
 import { getLesson1Soil, LIGHT_FILL_TEACH } from '../env/soil'
 import { angleDegToHour } from '../input/clock'
-import { buildSteerCue } from '../bore/targetSteering'
+import { buildSteerCue, hazardLateralCue } from '../bore/targetSteering'
+import { checkUtilityStrike } from '../collision/utilities'
 import type { CauseLog, CauseSnap, TickSnap, VerbSnap } from './types'
 import { logCauseTransitions } from './causeLog'
 
@@ -96,6 +97,30 @@ function symptomsFor(
       s.push({ id: 'frac', label: 'FRAC RISK', severity: 'critical' })
     }
   }
+  const utilProx = checkUtilityStrike({
+    station_ft: state.station_ft,
+    coverDepth_ft: state.coverDepth_ft,
+    lateral_ft: state.lateral_ft,
+    apwa: state.profile.apwa,
+  })
+  if (
+    utilProx.closing &&
+    !utilProx.strike &&
+    state.taughtFail !== 'TF_UTILITY_STRIKE'
+  ) {
+    const side =
+      utilProx.clearCue === 'left'
+        ? 'COME LEFT'
+        : utilProx.clearCue === 'right'
+          ? 'COME RIGHT'
+          : 'CLEAR L/R'
+    const name = (utilProx.utilityType ?? 'locate').toUpperCase()
+    s.push({
+      id: 'locate_closing',
+      label: `${side} · ${name} CLOSE`,
+      severity: 'warn',
+    })
+  }
   if (state.gpmNorm < 0.3) {
     s.push({ id: 'gpm_low', label: 'GPM LOW', severity: 'warn' })
   }
@@ -137,7 +162,7 @@ function debriefFor(state: GameState): TickSnap['debrief'] | undefined {
       'Real job fail — strike a utility or bury the head and the ticket dies.'
     if (state.taughtFail === 'TF_UTILITY_STRIKE') {
       body =
-        'You got too close to a painted locate (gas / water / telecom). Clearance is the job — not inventing bend.'
+        'You got too close to a painted locate (gas / water / telecom). Offset locates need a small clock 3 / 9 correction — clearance is the job.'
     } else if (state.taughtFail === 'TF_TOO_DEEP') {
       body =
         'Cover went past the safe depth band — that is frac / bury territory. Climb earlier next time.'
@@ -202,14 +227,24 @@ export function emitFromGameState(
       ? (100 * state.gradeHoldGood) / state.gradeHoldSamples
       : 0
 
-  const apwa = state.profile.apwa.map((m) => ({
-    color: m.color,
-    type: m.type,
-    depth_ft: m.depth_ft,
-    sta_ft: m.sta_ft,
-    label: `${m.type.toUpperCase()} · ${m.depth_ft.toFixed(1)} ft`,
-    role: m.role,
-  }))
+  const apwa = state.profile.apwa.map((m) => {
+    const offset = m.offset_ft ?? 0
+    const side =
+      Math.abs(offset) < 0.15
+        ? ''
+        : offset > 0
+          ? ` · +${offset.toFixed(1)}R`
+          : ` · ${offset.toFixed(1)}L`
+    return {
+      color: m.color,
+      type: m.type,
+      depth_ft: m.depth_ft,
+      sta_ft: m.sta_ft,
+      offset_ft: m.offset_ft,
+      label: `${m.type.toUpperCase()} · ${m.depth_ft.toFixed(1)} ft${side}`,
+      role: m.role,
+    }
+  })
 
   return {
     t: state.t,
@@ -219,11 +254,18 @@ export function emitFromGameState(
     symptoms: symptomsFor(state, next),
     hud: (() => {
       const targetPitch = state.targetPitchDeg
+      const hazard = hazardLateralCue({
+        station_ft: state.station_ft,
+        coverDepth_ft: state.coverDepth_ft,
+        lateral_ft: state.lateral_ft,
+        apwa: state.profile.apwa,
+      })
       const cue = buildSteerCue(
         state.pitchDeg,
         targetPitch,
         state.lateral_ft,
         state.profile.gradeWindow_deg,
+        hazard,
       )
       return {
         mudWeight: mud?.weight ?? 8.6,

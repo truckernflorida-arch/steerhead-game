@@ -23,8 +23,10 @@ export function FlowOverlay({ snap, level, onRetry }: Props) {
           Set <strong>rig entry pitch</strong>, then{' '}
           <strong>Drill first rod in</strong>. Once piloting, every rod has{' '}
           <strong>Just drill (straight)</strong> or{' '}
-          <strong>Push N ft @ clock</strong> — both always available. Clock is
-          optional on rod 1.
+          <strong>Push N ft @ clock</strong> — both always available. Yellow gas
+          sits <strong>slightly right of the ROW</strong> — take a small{' '}
+          <strong>clock 9 (COME LEFT)</strong> for a rod or two, then return to
+          12.
         </p>
         <ul className="flow-list">
           <li>
@@ -34,20 +36,25 @@ export function FlowOverlay({ snap, level, onRetry }: Props) {
             Shot: {level.bore?.length_ft ?? 120} ft curved ROW · target depth{' '}
             {level.bore?.targetDepth_ft ?? 6} ft · 10 ft rods
           </li>
-          <li>APWA: yellow gas on road · blue water parallel (brief)</li>
+          <li>
+            APWA: yellow gas <strong>+2 ft right @ sta 40</strong> (clock 9 to
+            clear) · blue water parallel · orange telecom
+          </li>
           <li>
             Hard fail: utility strike · too deep (bury). Over-steer = warn only.
           </li>
           <li>
             Grade hold soft-scores the ticket — not a mystery fail when clear
-            of locates.
+            of locates. Drill OR Push every rod.
           </li>
         </ul>
         <ol className="flow-steps">
           <li>Raise/lower rig — set entry pitch (slider)</li>
           <li>Drill first rod in — then Drill or Push on every rod</li>
-          <li>Miss yellow/blue locates · do not bury the head</li>
-          <li>Watch TARGET STEERING on Falcon + Ground locate map</li>
+          <li>
+            Near sta 40: COME LEFT (9) to miss offset gas · then back to 12
+          </li>
+          <li>Watch TARGET STEERING + Ground / Oblique locate maps</li>
         </ol>
       </aside>
     )

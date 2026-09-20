@@ -1,6 +1,6 @@
 {
   "campaign": "mud_plant_school",
-  "version": 2,
+  "version": 3,
   "levels": [
     {
       "id": "S01",
@@ -17,9 +17,9 @@
         "locked": true
       },
       "plantFail": "none",
-      "pass": "exit window; no utility strike; no bury/too-deep; gradeHold soft-scores; over-steer warn-only",
-      "failSentence": "Hard fails are real job fails: strike a locate or bury the head. Mild over-steer only warns; grade soft-scores.",
-      "rev": 2,
+      "pass": "exit window; clear offset yellow gas with L/R clock; no utility strike; no bury/too-deep; gradeHold soft-scores; over-steer warn-only",
+      "failSentence": "Hard fails are real job fails: strike a locate (incl. the offset gas) or bury the head. Mild over-steer only warns; grade soft-scores.",
+      "rev": 3,
       "spineLesson": 1,
       "mapsTo": "LEARNING_CORE_LOOP.md Lesson 1",
       "bore": {
@@ -34,8 +34,9 @@
         {
           "color": "yellow",
           "type": "gas",
-          "depth_ft": 3.5,
+          "depth_ft": 5.5,
           "sta_ft": 40,
+          "offset_ft": 2.0,
           "clearance": "wide"
         },
         {
@@ -49,13 +50,14 @@
           "type": "telecom",
           "depth_ft": 2.5,
           "sta_ft": 75,
+          "offset_ft": 0,
           "clearance": "wide"
         }
       ],
       "debriefChecklist": [
-        "Brief: named Dirt/light_fill + APWA yellow/blue",
+        "Brief: named Dirt/light_fill + APWA yellow gas offset right (clock 9 to clear)",
         "Mix: confirmed locked recipe in green band",
-        "Push: GPM+PSI green; steer only when allowed",
+        "Push: GPM+PSI green; Drill OR Push every rod; small L/R clock for offset locate",
         "Clean: noted CleanIndex before pull (soft)",
         "Pull: product daylit in window",
         "Outcome: stated gradeHold%; named TF_* if taught-fail"
