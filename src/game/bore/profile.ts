@@ -10,6 +10,8 @@ export type BorePoint = {
   sta_ft: number
   /** Cover depth below grade (ft), positive down */
   depth_ft: number
+  /** Lateral offset (ft): + right / − left of centerline */
+  offset_ft?: number
 }
 
 export type ApwaMark = {

@@ -65,6 +65,8 @@ export type TrainerHudVars = {
   // locator (Lesson 1)
   depthFt?: number
   stationFt?: number
+  /** Lateral offset ft (+ right / − left) for locator map */
+  lateralFt?: number
   clockHour?: number
   clockAngleDeg?: number
   targetDepthFt?: number

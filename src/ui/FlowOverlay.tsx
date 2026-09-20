@@ -40,7 +40,8 @@ export function FlowOverlay({ snap, level, onRetry }: Props) {
         <ol className="flow-steps">
           <li>Rotate first rod — set clock face (drag or 1–12)</li>
           <li>Match locator depth/pitch to plan</li>
-          <li>Spud in / Start push — then thrust (W / slider)</li>
+          <li>Spud in — then Push 2 ft @ clock, or hold Just drill (straight)</li>
+          <li>Switch to Locator map (L/R) to watch walk left/right</li>
         </ol>
       </aside>
     )

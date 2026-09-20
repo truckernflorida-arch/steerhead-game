@@ -11,6 +11,7 @@ export function LocatorPanel({ snap }: Props) {
   const depth = h.depthFt ?? 0
   const pitch = h.pitchDeg
   const station = h.stationFt ?? 0
+  const lateral = h.lateralFt ?? 0
   const bars = h.signalBars ?? 5
   const apwa = h.apwa ?? []
   const target = h.targetDepthFt ?? 6
@@ -55,6 +56,13 @@ export function LocatorPanel({ snap }: Props) {
         <div className="locator-readout">
           <span className="lr-label">STATION</span>
           <span className="lr-value">{station.toFixed(0)} FT</span>
+        </div>
+        <div className="locator-readout">
+          <span className="lr-label">L / R</span>
+          <span className="lr-value">
+            {lateral >= 0 ? '+' : ''}
+            {lateral.toFixed(1)} FT
+          </span>
         </div>
         <div className="locator-readout">
           <span className="lr-label">SIGNAL</span>

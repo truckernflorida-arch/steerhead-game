@@ -170,6 +170,7 @@ export function emitFromGameState(
       pitchDeg: state.pitchDeg,
       depthFt: state.coverDepth_ft,
       stationFt: state.station_ft,
+      lateralFt: state.lateral_ft,
       clockHour: angleDegToHour(state.clockAngleDeg),
       clockAngleDeg: state.clockAngleDeg,
       targetDepthFt: state.profile.targetDepth_ft,

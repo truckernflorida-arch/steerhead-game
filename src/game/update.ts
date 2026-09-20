@@ -1,10 +1,13 @@
 /**
  * Lesson 1 update: dirt / light_fill feel + profile path + daylight.
+ * Discrete rod push (default 2 ft) + Just drill (straight) + lateral walk.
  * Thrust/ROP + clock/keyboard steer + mild walkBias; taught-fail TF_PANIC_DOGLEG.
  * Secondary TF_PACKED_HEAD / TF_FRAC_THIN only if player kills GPM.
  */
 import type { GameOutcome, GamePhase, GameState } from './state'
+import { DEFAULT_PUSH_FT } from './state'
 import type { InputFrame } from './input'
+import { clockAngleToYaw } from './input/clock'
 import {
   clampSteerDeltaDeg,
   getLesson1Soil,
@@ -14,6 +17,7 @@ import {
   isInHoldBand,
   nearDaylight,
   M_TO_FT,
+  FT_TO_M,
 } from './bore/profile'
 import { scoreLesson1 } from './score/lesson1'
 
@@ -57,7 +61,19 @@ export function update(
   input: InputFrame,
   dt: number,
 ): GameState {
-  if (dt <= 0 && !input.startPush && !input.retry) return state
+  if (
+    dt <= 0 &&
+    !input.startPush &&
+    !input.retry &&
+    !input.pushStep
+  ) {
+    return state
+  }
+
+  const pushLen = Math.max(
+    0.5,
+    Math.min(10, input.pushLengthFt ?? state.pushLength_ft ?? DEFAULT_PUSH_FT),
+  )
 
   if (input.retry && state.phase === 'debrief') {
     return {
@@ -67,11 +83,15 @@ export function update(
       headDepth_m: 0,
       station_ft: 0,
       coverDepth_ft: 0.8,
+      lateral_ft: 0,
       pitchDeg: 14,
       rop_m_s: 0,
       boreProgress: 0,
-      path: [{ sta_ft: 0, depth_ft: 0.8 }],
+      path: [{ sta_ft: 0, depth_ft: 0.8, offset_ft: 0 }],
       clockAngleDeg: input.clockAngleDeg || 180,
+      pushLength_ft: pushLen,
+      pendingPush_ft: 0,
+      drillStraight: false,
       panicDoglegCount: 0,
       panicDoglegWarn: false,
       taughtFail: undefined,
@@ -91,13 +111,17 @@ export function update(
         ...state,
         phase: 'pilot',
         clockAngleDeg: input.clockAngleDeg || state.clockAngleDeg,
+        pushLength_ft: pushLen,
       }
     }
     return {
       ...state,
       t: state.t + Math.max(dt, 0),
       clockAngleDeg: input.clockAngleDeg || state.clockAngleDeg,
+      pushLength_ft: pushLen,
       rop_m_s: 0,
+      drillStraight: false,
+      pendingPush_ft: 0,
     }
   }
 
@@ -115,18 +139,36 @@ export function update(
       t: state.t + Math.max(dt, 0),
       rop_m_s: 0,
       clockAngleDeg: input.clockAngleDeg || state.clockAngleDeg,
+      pendingPush_ft: 0,
+      drillStraight: false,
     }
   }
 
-  if (dt <= 0) return state
+  if (dt <= 0 && !input.pushStep) return state
 
   const soil = getLesson1Soil()
   if (!soil.unlocked || soil.fourPack !== 'dirt') return state
 
   const teach = LIGHT_FILL_TEACH
   const clockAngleDeg = input.clockAngleDeg || state.clockAngleDeg
+  const drillStraight = Boolean(input.drillStraight)
 
-  const thrust = clamp01(Math.max(input.thrust, input.touchSpeed))
+  let pendingPush_ft = state.pendingPush_ft
+  if (input.pushStep && pendingPush_ft <= 0.01) {
+    pendingPush_ft = pushLen
+  }
+
+  // Continuous thrust (slider / W / Just drill hold) OR discrete push remainder
+  let thrust = clamp01(Math.max(input.thrust, input.touchSpeed))
+  if (drillStraight) {
+    // Spin & shove teaching: steady straight advance without clock chase
+    thrust = Math.max(thrust, 0.55)
+  }
+  if (pendingPush_ft > 0.01) {
+    // Deliberate rod push: moderate ROP until step consumed
+    thrust = Math.max(thrust, 0.55)
+  }
+
   const [ropLo, ropHi] = soil.ropRange_m_s
   let rop = 0
   if (thrust > 0.02) {
@@ -137,16 +179,43 @@ export function update(
     }
   }
 
-  const ds = rop * dt
-  const steerInput = Math.max(-1, Math.min(1, input.steer))
+  let ds = rop * Math.max(dt, 0)
+
+  // Cap step so we don't overshoot remaining discrete push
+  if (pendingPush_ft > 0.01 && ds > 0) {
+    const pending_m = pendingPush_ft * FT_TO_M
+    if (ds > pending_m) ds = pending_m
+    pendingPush_ft = Math.max(0, pendingPush_ft - ds * M_TO_FT)
+  }
+
+  // Just drill: ignore clock pitch/yaw (straight). Keyboard thrash still steers
+  // so TF_PANIC_DOGLEG remains possible if the player hammers A/D.
+  const keyboardThrash = Math.max(
+    -1,
+    Math.min(1, (input.keys['a'] || input.keys['A'] ? -1 : 0) +
+      (input.keys['d'] || input.keys['D'] ? 1 : 0) +
+      (input.keys['ArrowLeft'] ? -1 : 0) +
+      (input.keys['ArrowRight'] ? 1 : 0)),
+  )
+  let steerInput: number
+  let yawInput: number
+  if (drillStraight) {
+    steerInput = keyboardThrash * 0.35
+    yawInput = 0
+  } else {
+    steerInput = Math.max(-1, Math.min(1, input.steer))
+    yawInput = clockAngleToYaw(clockAngleDeg)
+  }
+
   const dPitchWanted =
     ds > 1e-8
       ? steerInput * soil.steerAuthority * soil.maxSteerDegPerM * ds
       : 0
   let dPitch = clampSteerDeltaDeg(dPitchWanted, ds, soil)
 
-  const walkPhase = state.walkPhase + dt
+  const walkPhase = state.walkPhase + Math.max(dt, 0)
   const noise = Math.sin(walkPhase * 1.7) * soil.walkNoiseAmp * 0.15 * ds
+  // Mild natural walk on pitch; Just drill keeps bias (soil) but no clock bend
   dPitch += soil.walkBias_deg_m * ds + noise
 
   const pitchDeg = state.pitchDeg + dPitch
@@ -154,12 +223,20 @@ export function update(
 
   const dSta_ft = ds * Math.cos(pitchRad) * M_TO_FT
   const dCover_ft = ds * Math.sin(pitchRad) * M_TO_FT
+  // Lateral walk from clock 3/9 (and soil walkLateral noise)
+  const dLat =
+    ds *
+    M_TO_FT *
+    (yawInput * soil.steerAuthority * 0.45 +
+      Math.sin(walkPhase * 1.1) * soil.walkLateral * 0.5)
+
   const headDepth_m = Math.min(state.boreLength_m, state.headDepth_m + ds)
   let station_ft = Math.min(
     state.profile.length_ft,
     Math.max(0, state.station_ft + dSta_ft),
   )
   let coverDepth_ft = Math.max(0.05, state.coverDepth_ft + dCover_ft)
+  let lateral_ft = Math.max(-20, Math.min(20, state.lateral_ft + dLat))
 
   const boreProgress =
     state.boreLength_m > 0 ? clamp01(headDepth_m / state.boreLength_m) : 0
@@ -168,9 +245,17 @@ export function update(
   const last = path[path.length - 1]
   if (
     !last ||
-    Math.hypot(station_ft - last.sta_ft, coverDepth_ft - last.depth_ft) > 0.35
+    Math.hypot(
+      station_ft - last.sta_ft,
+      coverDepth_ft - last.depth_ft,
+      lateral_ft - (last.offset_ft ?? 0),
+    ) > 0.35
   ) {
-    path.push({ sta_ft: station_ft, depth_ft: coverDepth_ft })
+    path.push({
+      sta_ft: station_ft,
+      depth_ft: coverDepth_ft,
+      offset_ft: lateral_ft,
+    })
     if (path.length > 400) path.shift()
   }
 
@@ -196,7 +281,7 @@ export function update(
   const oversteering = bendRate > teach.panicDoglegDegPerM
 
   if (oversteering) {
-    oversteerTimer += dt
+    oversteerTimer += Math.max(dt, 0)
     if (!panicDoglegWarn && oversteerTimer > 0.35) panicDoglegWarn = true
     if (oversteerTimer > 0.9) {
       panicDoglegCount += 1
@@ -208,14 +293,14 @@ export function update(
       }
     }
   } else {
-    oversteerTimer = Math.max(0, oversteerTimer - dt * 2)
+    oversteerTimer = Math.max(0, oversteerTimer - Math.max(dt, 0) * 2)
   }
 
   let nextGpm = state.gpmNorm
   if (input.keys['g'] || input.keys['G']) {
-    nextGpm = Math.max(0, state.gpmNorm - 0.5 * dt)
+    nextGpm = Math.max(0, state.gpmNorm - 0.5 * Math.max(dt, 0))
   } else if (state.gpmNorm < 1) {
-    nextGpm = Math.min(1, state.gpmNorm + 0.2 * dt)
+    nextGpm = Math.min(1, state.gpmNorm + 0.2 * Math.max(dt, 0))
   }
 
   if (!taughtFail && nextGpm < 0.05) {
@@ -252,16 +337,20 @@ export function update(
 
   let next: GameState = {
     ...state,
-    t: state.t + dt,
+    t: state.t + Math.max(dt, 0),
     phase,
     headDepth_m,
     station_ft,
     coverDepth_ft,
+    lateral_ft,
     pitchDeg,
     rop_m_s: rop,
     boreProgress,
     path,
     clockAngleDeg,
+    pushLength_ft: pushLen,
+    pendingPush_ft,
+    drillStraight,
     panicDoglegCount,
     panicDoglegWarn,
     taughtFail,

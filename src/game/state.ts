@@ -20,6 +20,11 @@ export type GameOutcome =
   | 'taught_fail'
   | 'wrong_daylight'
 
+/** Active rod length shown in HUD (ft) — first-class teaching constant */
+export const ROD_LENGTH_FT = 10
+/** Default discrete push step (ft) */
+export const DEFAULT_PUSH_FT = 2
+
 export type GameState = {
   levelId: string
   level: JobCard | null
@@ -32,6 +37,8 @@ export type GameState = {
   station_ft: number
   /** Cover depth below grade (ft), positive down */
   coverDepth_ft: number
+  /** Lateral offset (ft): + = right of planned centerline, − = left */
+  lateral_ft: number
   /** Pitch degrees (+ dive) */
   pitchDeg: number
   rop_m_s: number
@@ -40,6 +47,14 @@ export type GameState = {
   profile: ProfilePlan
   path: BorePoint[]
   clockAngleDeg: number
+  /** Active rod length (ft) — display / teaching */
+  rodLength_ft: number
+  /** Chosen discrete push length (ft) */
+  pushLength_ft: number
+  /** Remaining discrete push to consume (ft along path) */
+  pendingPush_ft: number
+  /** True while Just drill (straight) is held */
+  drillStraight: boolean
   panicDoglegCount: number
   panicDoglegWarn: boolean
   taughtFail?: CauseId
@@ -64,13 +79,18 @@ export function createGameState(level: JobCard | null = null): GameState {
     headDepth_m: 0,
     station_ft: 0,
     coverDepth_ft: 0.8,
+    lateral_ft: 0,
     pitchDeg: 14,
     rop_m_s: 0,
     boreProgress: 0,
     boreLength_m: lengthFt * FT_TO_M,
     profile,
-    path: [{ sta_ft: 0, depth_ft: 0.8 }],
+    path: [{ sta_ft: 0, depth_ft: 0.8, offset_ft: 0 }],
     clockAngleDeg: 180,
+    rodLength_ft: ROD_LENGTH_FT,
+    pushLength_ft: DEFAULT_PUSH_FT,
+    pendingPush_ft: 0,
+    drillStraight: false,
     panicDoglegCount: 0,
     panicDoglegWarn: false,
     taughtFail: undefined,

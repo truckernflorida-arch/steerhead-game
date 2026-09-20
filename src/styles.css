@@ -285,7 +285,7 @@ code {
 
 .locator-readouts {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 0.4rem;
 }
 
@@ -581,5 +581,178 @@ code {
   }
   .play-canvas {
     max-width: 100%;
+  }
+}
+
+
+/* --- Rod / push + Just drill + map tabs --- */
+.rod-controls {
+  background: #12181f;
+  border: 1px solid #2c3640;
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.rod-marker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.85rem;
+  align-items: baseline;
+}
+
+.rod-marker-main {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.95rem;
+  font-weight: 650;
+  color: #5ec8c8;
+  letter-spacing: 0.02em;
+}
+
+.rod-marker-pending {
+  font-size: 0.75rem;
+  color: #e6c84a;
+}
+
+.rod-marker-drill {
+  font-size: 0.75rem;
+  color: #9fd4ff;
+}
+
+.rod-push-len {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.rod-push-len-label {
+  font-size: 0.7rem;
+  color: #8a9aa6;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-right: 0.25rem;
+}
+
+.rod-chip {
+  appearance: none;
+  border: 1px solid #3d4a54;
+  background: #1a2330;
+  color: #c5d4de;
+  border-radius: 999px;
+  padding: 0.35rem 0.75rem;
+  font-size: 0.8rem;
+  min-height: 2.25rem;
+  min-width: 3.25rem;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.rod-chip-on {
+  border-color: #5ec8c8;
+  background: #1a3034;
+  color: #5ec8c8;
+  font-weight: 700;
+}
+
+.rod-chip:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.rod-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.rod-btn {
+  appearance: none;
+  border: 1px solid #3d4a54;
+  border-radius: 8px;
+  padding: 0.65rem 1rem;
+  font-size: 0.9rem;
+  font-weight: 650;
+  cursor: pointer;
+  touch-action: manipulation;
+  min-height: 2.75rem;
+  flex: 1 1 160px;
+}
+
+.rod-btn-push {
+  background: #243039;
+  color: #e6eef4;
+  border-color: #5ec8c8;
+}
+
+.rod-btn-push:not(:disabled):hover {
+  background: #2a3a44;
+}
+
+.rod-btn-drill {
+  background: #1a2830;
+  color: #9fd4ff;
+  border-color: #3d6a7a;
+}
+
+.rod-btn-drill-on {
+  background: #1e3a4c;
+  border-color: #7ec8ff;
+  box-shadow: 0 0 0 2px rgba(126, 200, 255, 0.25);
+}
+
+.rod-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.rod-hint {
+  margin: 0;
+  font-size: 0.72rem;
+  color: #6b7c88;
+  line-height: 1.35;
+}
+
+.map-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 0.65rem;
+}
+
+.map-tab {
+  appearance: none;
+  border: 1px solid #2c3640;
+  background: #161b20;
+  color: #8a9aa6;
+  border-radius: 6px 6px 0 0;
+  padding: 0.45rem 0.9rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  touch-action: manipulation;
+  min-height: 2.4rem;
+}
+
+.map-tab-on {
+  background: #1a2830;
+  color: #5ec8c8;
+  border-color: #5ec8c8;
+  border-bottom-color: #1a2830;
+}
+
+.oblique-canvas {
+  background: #12181f;
+}
+
+@media (max-width: 720px) {
+  .rod-btn {
+    flex: 1 1 100%;
+  }
+  .rod-marker-main {
+    font-size: 0.85rem;
   }
 }

@@ -1,6 +1,6 @@
 /**
  * Play route — Lesson 1 = S01 Dirt Yard (light_fill / dirt).
- * Clock + locator + profile bore + brief→push→daylight/TF_PANIC_DOGLEG debrief.
+ * Clock + locator + profile / oblique map + rod push + Just drill.
  * Brief: no blocking overlay; set clock first, then Spud in / Start push.
  */
 import { createFileRoute } from '@tanstack/react-router'
@@ -21,17 +21,26 @@ import {
   sampleClock,
   normalizeAngleDeg,
 } from '#/game/input'
-import { createGameState, resetGameState, type GameState } from '#/game/state'
+import {
+  createGameState,
+  resetGameState,
+  DEFAULT_PUSH_FT,
+  type GameState,
+} from '#/game/state'
 import { update } from '#/game/update'
 import { render } from '#/game/render'
+import { renderOblique } from '#/game/renderOblique'
 import { TrainerHud } from '#/ui/TrainerHud'
 import { ClockFace } from '#/ui/ClockFace'
 import { LocatorPanel } from '#/ui/LocatorPanel'
 import { FlowOverlay } from '#/ui/FlowOverlay'
+import { RodControls } from '#/ui/RodControls'
 
 export const Route = createFileRoute('/play')({ component: PlayPage })
 
 const INITIAL_CLOCK_DEG = 180
+
+type MapView = 'profile' | 'oblique'
 
 function PlayPage() {
   const level = useMemo(() => loadLesson1(), [])
@@ -43,6 +52,9 @@ function PlayPage() {
   const prevKeysRef = useRef<Record<string, boolean>>({})
   const startPushRef = useRef(false)
   const retryRef = useRef(false)
+  const pushStepRef = useRef(false)
+  const drillStraightRef = useRef(false)
+  const pushLengthRef = useRef(DEFAULT_PUSH_FT)
   const clockConfirmedRef = useRef(false)
   const stateRef = useRef<GameState>(createGameState(level))
   const [snap, setSnap] = useState<TickSnap>(() =>
@@ -52,8 +64,14 @@ function PlayPage() {
   const [touchSpeed, setTouchSpeed] = useState(0)
   const [clockAngle, setClockAngle] = useState(INITIAL_CLOCK_DEG)
   const [clockConfirmed, setClockConfirmed] = useState(false)
+  const [pushLengthFt, setPushLengthFt] = useState(DEFAULT_PUSH_FT)
+  const [pendingPushFt, setPendingPushFt] = useState(0)
+  const [drillActive, setDrillActive] = useState(false)
+  const [mapView, setMapView] = useState<MapView>('profile')
   const [status, setStatus] = useState('')
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const obliqueRef = useRef<HTMLCanvasElement>(null)
+  const mapViewRef = useRef<MapView>('profile')
 
   useEffect(() => {
     stateRef.current = createGameState(level)
@@ -64,7 +82,15 @@ function PlayPage() {
     setClockConfirmed(false)
     touch.current.setSpeed(0)
     setTouchSpeed(0)
+    pushLengthRef.current = DEFAULT_PUSH_FT
+    setPushLengthFt(DEFAULT_PUSH_FT)
+    drillStraightRef.current = false
+    setDrillActive(false)
   }, [level])
+
+  useEffect(() => {
+    mapViewRef.current = mapView
+  }, [mapView])
 
   useEffect(() => {
     const onDown = (e: KeyboardEvent) => {
@@ -116,8 +142,6 @@ function PlayPage() {
 
       let input = createEmptyInput()
       // During brief: do not sample W thrust / steer into motion — clock only.
-      // update() already freezes station/depth in brief; strip thrust so W cannot
-      // look like a start and touch pre-set stays inert until Spud in.
       if (phase === 'brief') {
         input = sampleClock(input, clock.current.angleDeg, 0)
         input = {
@@ -127,6 +151,9 @@ function PlayPage() {
           keys: { ...keys },
           startPush: startPushRef.current,
           retry: retryRef.current,
+          pushStep: false,
+          drillStraight: false,
+          pushLengthFt: pushLengthRef.current,
         }
       } else {
         input = sampleKeyboard(input, keys)
@@ -140,24 +167,35 @@ function PlayPage() {
           keys: { ...keys },
           startPush: startPushRef.current,
           retry: retryRef.current,
+          pushStep: pushStepRef.current,
+          drillStraight: drillStraightRef.current,
+          pushLengthFt: pushLengthRef.current,
         }
       }
       startPushRef.current = false
       retryRef.current = false
+      pushStepRef.current = false
       prevKeysRef.current = { ...keys }
 
       const next = update(stateRef.current, input, dt)
       stateRef.current = next
       setClockAngle(next.clockAngleDeg)
       clock.current.setAngleDeg(next.clockAngleDeg)
+      setPendingPushFt(next.pendingPush_ft)
+      setDrillActive(next.drillStraight)
       const nextSnap = emitFromGameState(emitter.current, next)
       setSnap(nextSnap)
       setStatus(
-        `sta ${next.station_ft.toFixed(0)} ft · depth ${next.coverDepth_ft.toFixed(1)} ft · pitch ${next.pitchDeg.toFixed(1)}° · ROP ${next.rop_m_s.toFixed(3)} m/s`,
+        `sta ${next.station_ft.toFixed(0)} ft · depth ${next.coverDepth_ft.toFixed(1)} ft · L/R ${next.lateral_ft >= 0 ? '+' : ''}${next.lateral_ft.toFixed(1)} ft · pitch ${next.pitchDeg.toFixed(1)}° · ROP ${next.rop_m_s.toFixed(3)} m/s`,
       )
 
-      const c = canvasRef.current
-      if (c) render(c, next)
+      if (mapViewRef.current === 'profile') {
+        const c = canvasRef.current
+        if (c) render(c, next)
+      } else {
+        const o = obliqueRef.current
+        if (o) renderOblique(o, next)
+      }
 
       raf = requestAnimationFrame(tick)
     }
@@ -184,6 +222,27 @@ function PlayPage() {
     startPushRef.current = true
   }
 
+  function onPushStep() {
+    if (stateRef.current.phase !== 'pilot') return
+    pushStepRef.current = true
+  }
+
+  function onDrillDown() {
+    if (stateRef.current.phase !== 'pilot') return
+    drillStraightRef.current = true
+    setDrillActive(true)
+  }
+
+  function onDrillUp() {
+    drillStraightRef.current = false
+    setDrillActive(false)
+  }
+
+  function onPushLength(ft: number) {
+    pushLengthRef.current = ft
+    setPushLengthFt(ft)
+  }
+
   function onRetry() {
     retryRef.current = true
     stateRef.current = resetGameState(stateRef.current)
@@ -194,6 +253,11 @@ function PlayPage() {
     setClockConfirmed(false)
     touch.current.setSpeed(0)
     setTouchSpeed(0)
+    pushLengthRef.current = DEFAULT_PUSH_FT
+    setPushLengthFt(DEFAULT_PUSH_FT)
+    setPendingPushFt(0)
+    drillStraightRef.current = false
+    setDrillActive(false)
   }
 
   const pushing = snap.phase === 'pilot'
@@ -245,16 +309,59 @@ function PlayPage() {
         </div>
       </div>
 
+      <RodControls
+        clockAngleDeg={clockAngle}
+        pushLengthFt={pushLengthFt}
+        onPushLengthFt={onPushLength}
+        pendingPushFt={pendingPushFt}
+        phase={snap.phase}
+        onPushStep={onPushStep}
+        onDrillDown={onDrillDown}
+        onDrillUp={onDrillUp}
+        drillActive={drillActive}
+      />
+
       <FlowOverlay snap={snap} level={level} onRetry={onRetry} />
 
+      <div className="map-tabs" role="tablist" aria-label="Bore views">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mapView === 'profile'}
+          className={mapView === 'profile' ? 'map-tab map-tab-on' : 'map-tab'}
+          onClick={() => setMapView('profile')}
+        >
+          Profile (depth)
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mapView === 'oblique'}
+          className={mapView === 'oblique' ? 'map-tab map-tab-on' : 'map-tab'}
+          onClick={() => setMapView('oblique')}
+        >
+          Locator map (L/R)
+        </button>
+      </div>
+
       <div className="play-layout">
-        <canvas
-          ref={canvasRef}
-          className="play-canvas"
-          width={720}
-          height={400}
-          aria-label="Profile bore view — entry to daylight"
-        />
+        {mapView === 'profile' ? (
+          <canvas
+            ref={canvasRef}
+            className="play-canvas"
+            width={720}
+            height={400}
+            aria-label="Profile bore view — entry to daylight"
+          />
+        ) : (
+          <canvas
+            ref={obliqueRef}
+            className="play-canvas oblique-canvas"
+            width={720}
+            height={360}
+            aria-label="Oblique locator map — left and right walk"
+          />
+        )}
         <TrainerHud
           snap={snap}
           causeLog={emitter.current.log}
@@ -266,7 +373,7 @@ function PlayPage() {
 
       <div className="touch-speed" aria-label="Touch speed control">
         <label htmlFor="touch-speed">
-          Touch speed / thrust <span>{touchSpeed.toFixed(2)}</span>
+          Drill / continuous thrust <span>{touchSpeed.toFixed(2)}</span>
         </label>
         <input
           id="touch-speed"
@@ -285,10 +392,15 @@ function PlayPage() {
         {inBrief ? (
           <p className="touch-speed-note">
             Thrust stays at 0 until you Spud in — slider unlocks after start.
+            Prefer Push 2 ft @ clock for deliberate steps.
           </p>
-        ) : null}
+        ) : (
+          <p className="touch-speed-note">
+            Continuous free thrust (Drill). Deliberate 2 ft pushes use the rod
+            buttons above.
+          </p>
+        )}
       </div>
-
     </main>
   )
 }

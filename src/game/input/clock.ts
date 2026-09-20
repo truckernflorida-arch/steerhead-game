@@ -1,6 +1,6 @@
 /**
- * Clock-face rod rotation → steer.
- * 12 = climb, 6 = dive, 3/9 = hold (2D profile).
+ * Clock-face rod rotation → steer (pitch) + yaw (walk L/R).
+ * 12 = climb, 6 = dive, 3 = right, 9 = left (2D profile + oblique).
  * Angle: 0° at 12, clockwise.
  */
 import type { InputFrame } from './index'
@@ -22,6 +22,12 @@ export function angleDegToHour(angleDeg: number): number {
 export function clockAngleToSteer(angleDeg: number): number {
   const rad = (angleDeg * Math.PI) / 180
   return -Math.cos(rad)
+}
+
+/** sin: 3→right(+1), 9→left(-1), 12/6→0 */
+export function clockAngleToYaw(angleDeg: number): number {
+  const rad = (angleDeg * Math.PI) / 180
+  return Math.sin(rad)
 }
 
 export function normalizeAngleDeg(angleDeg: number): number {
