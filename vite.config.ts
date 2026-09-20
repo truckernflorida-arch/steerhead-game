@@ -6,11 +6,15 @@ import viteReact from '@vitejs/plugin-react'
 import { nitro } from 'nitro/vite'
 
 const config = defineConfig({
+  base: '/steerhead-game/',
   resolve: { tsconfigPaths: true },
   plugins: [
     nitro({ rollupConfig: { external: [/^@sentry\//] } }),
 
-    tanstackStart(),
+    tanstackStart({
+      spa: { enabled: true },
+      router: { basepath: '/steerhead-game' },
+    }),
     viteReact(),
   ],
 })

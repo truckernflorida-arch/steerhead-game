@@ -1,0 +1,72 @@
+name: Deploy GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Prepare SPA Pages artifact
+        run: |
+          set -euo pipefail
+          PUBLIC=".output/public"
+          ls -la "$PUBLIC" || true
+          # Prefer index.html; fall back from SPA shell
+          if [ ! -f "$PUBLIC/index.html" ]; then
+            if [ -f "$PUBLIC/_shell.html" ]; then
+              cp "$PUBLIC/_shell.html" "$PUBLIC/index.html"
+            elif [ -f "$PUBLIC/index/index.html" ]; then
+              cp "$PUBLIC/index/index.html" "$PUBLIC/index.html"
+            else
+              echo "ERROR: no index.html or _shell.html in $PUBLIC"
+              find "$PUBLIC" -maxdepth 3 -type f | head -100
+              exit 1
+            fi
+          fi
+          # GitHub Pages SPA fallback
+          cp "$PUBLIC/index.html" "$PUBLIC/404.html"
+          # Also keep _shell.html if present for clarity
+          ls -la "$PUBLIC"/*.html || true
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: .output/public
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
