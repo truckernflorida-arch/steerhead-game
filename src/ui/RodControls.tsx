@@ -53,7 +53,7 @@ export function RodControls({
           Rod {rodIndex} of {rodTotal} · {ROD_LENGTH_FT} ft rod
           {steerUnlocked
             ? ` · push ${pushLengthFt} ft @ ${hour} o'clock`
-            : ' · first rod — just drill'}
+            : ' · first rod — drill (clock optional)'}
         </span>
         {pushing ? (
           <span className="rod-marker-pending">
@@ -106,11 +106,11 @@ export function RodControls({
                 : 'rod-btn rod-btn-drill'
             }
             onClick={() => onDrillFirstRod?.()}
-            disabled={!piloting || pushing}
+            disabled={phase === 'debrief' || pushing}
             title={
               piloting
-                ? `Shove remaining first ${ROD_LENGTH_FT} ft straight (no clock)`
-                : 'Set rig pitch, then drill first rod in'
+                ? `Shove remaining first ${ROD_LENGTH_FT} ft straight (no clock required)`
+                : 'Set rig pitch, then Drill — clock is optional'
             }
           >
             Drill first rod in
@@ -158,7 +158,7 @@ export function RodControls({
       </div>
       <p className="rod-hint">
         {firstRod
-          ? `Rod 1: just drill — spin & shove the first ${ROD_LENGTH_FT} ft along entry pitch. No clock or steered push yet.`
+          ? `Rod 1: Drill to spin & shove the first ${ROD_LENGTH_FT} ft along entry pitch — clock is optional. Steered push unlocks on Rod 2+.`
           : `Each ${ROD_LENGTH_FT} ft rod: choose dive / level / steer via clock + optional ${DEFAULT_PUSH_FT} ft pushes. Target steering on Falcon shows pitch band vs plan. Continuous thrust via slider / W.`}
       </p>
     </section>

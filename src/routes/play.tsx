@@ -345,18 +345,7 @@ function PlayPage() {
           <ClockFace
             angleDeg={clockAngle}
             onAngleDeg={onClockAngle}
-            disabled={
-              snap.phase === 'debrief' ||
-              snap.phase === 'brief' ||
-              rodIndex <= 1
-            }
-            lockedHint={
-              snap.phase === 'debrief'
-                ? undefined
-                : rodIndex <= 1 || snap.phase === 'brief'
-                  ? 'FIRST ROD — JUST DRILL'
-                  : undefined
-            }
+            disabled={snap.phase === 'debrief'}
           />
           {inBrief ? (
             <div className="spud-row">
@@ -395,14 +384,13 @@ function PlayPage() {
                   </button>
                 </div>
                 <p className="spud-hint rig-pitch-hint">
-                  Raise/lower machine (or bit) before first rod. First rod is
-                  just drill along this pitch — clock unlocks after ~10 ft.
-                  Keys [ ]
+                  Raise/lower machine (or bit) before first rod. Keys [ ]
                 </p>
               </div>
               <p className="spud-hint">
-                First rod: spin &amp; shove ~10 ft in. No clock or steered push
-                yet.
+                First rod: <strong>Drill</strong> (no clock needed) — or set
+                clock now as an option for later rods. Steered push unlocks
+                after ~10 ft.
               </p>
               <button
                 type="button"
@@ -518,13 +506,13 @@ function PlayPage() {
         />
         {inBrief ? (
           <p className="touch-speed-note">
-            Set rig entry pitch, then Drill first rod in. Thrust stays at 0
-            until start. Clock / Push unlock after the first ~10 ft.
+            Set rig pitch, then hit Drill first rod in (no clock required).
+            Clock is optional now; steered Push unlocks after ~10 ft.
           </p>
         ) : rodIndex <= 1 ? (
           <p className="touch-speed-note">
-            First rod: just drill along entry pitch (no clock). After ~10 ft
-            you can set clock and Push N ft.
+            Drilling first rod along entry pitch. Clock optional; Push N ft
+            unlocks after this rod (~10 ft).
           </p>
         ) : (
           <p className="touch-speed-note">
