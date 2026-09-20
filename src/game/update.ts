@@ -298,7 +298,7 @@ export function update(
     yawInput = clockAngleToYaw(clockAngleDeg)
   }
 
-  // Teaching push: readable ° change on 1–2 ft @ 12 (≈1°/ft * clockSteer).
+  // Teaching push: readable ° change — ~2°/ft @ 12 so a 10 ft rod can level from entry.
   // Physical maxSteerDegPerM alone is ~0.2°/ft — invisible on Falcon.
   const ds_ft = ds * M_TO_FT
   const dPitchWanted =

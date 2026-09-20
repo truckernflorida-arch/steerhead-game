@@ -213,11 +213,11 @@ export const LIGHT_FILL_TEACH = {
   fracRedline: 85,
   /**
    * Discrete Push teaching pitch (° per ft at |clockAngleToSteer|=1).
-   * 12 o'clock → climb (+): 1 ft ≈ +1°, 2 ft ≈ +2° on light_fill (HDD sign).
-   * Scales by |clockAngleToSteer| so 1:30 is weaker than 12.
-   * Physical maxSteerDegPerM (~0.7°/m) is too small for readable 1–2 ft pushes.
+   * HDD: 12 = climb (+). Tuned so a full 10 ft rod @ 12 can lift ~20° —
+   * enough to leave −14° entry and level off in one rod.
+   * Scales by |clockAngleToSteer| so partial clock is weaker.
    */
-  pushPitchDegPerFtAtFull12: 1.0,
+  pushPitchDegPerFtAtFull12: 2.0,
 }
 
 export type ResolvedSoil = SoilFourParams & {
