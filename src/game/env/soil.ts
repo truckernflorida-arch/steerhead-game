@@ -198,10 +198,11 @@ export const SOIL_ALIAS: Record<SoilAliasId, SoilFour> = {
 
 /** Lesson 1 teaching extras from LIGHT_FILL contract (not on locked soils). */
 export const LIGHT_FILL_TEACH = {
-  signatureTaughtFail: 'TF_PANIC_DOGLEG' as const,
-  secondaryFails: ['TF_PACKED_HEAD', 'TF_FRAC_THIN'] as const,
-  panicDoglegDegPerM: 0.4,
-  panicDoglegWarnCount: 1,
+  /** Hard taught fails are utility strike / too deep; panic dogleg is warn-only */
+  signatureTaughtFail: 'TF_UTILITY_STRIKE' as const,
+  secondaryFails: ['TF_TOO_DEEP', 'TF_PACKED_HEAD', 'TF_FRAC_THIN'] as const,
+  panicDoglegDegPerM: 0.55,
+  panicDoglegWarnCount: 99,
   gradeWindow_deg: 1.5,
   gradeHoldPass: 0.7,
   mudWeightGreen_ppg: [8.4, 9.0] as const,

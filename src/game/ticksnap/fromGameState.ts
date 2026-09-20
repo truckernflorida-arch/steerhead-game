@@ -1,6 +1,7 @@
 /**
  * Build TickSnap from live GameState (Lesson 1 dirt feel).
- * Minimal cascade: TF_PANIC_DOGLEG; secondary only if GPM killed.
+ * Hard causes: TF_UTILITY_STRIKE, TF_TOO_DEEP (+ secondary GPM).
+ * TF_PANIC_DOGLEG is warn-only (symptom), not a taught hard fail.
  */
 import type { GameState } from '../state'
 import { ROD_LENGTH_FT } from '../state'
@@ -11,10 +12,20 @@ import type { CauseLog, CauseSnap, TickSnap, VerbSnap } from './types'
 import { logCauseTransitions } from './causeLog'
 
 const CAUSE_META: Record<string, CauseSnap> = {
+  TF_UTILITY_STRIKE: {
+    id: 'TF_UTILITY_STRIKE',
+    label: 'Utility strike — hit locate (gas / water / telecom)',
+    tag: 'strike',
+  },
+  TF_TOO_DEEP: {
+    id: 'TF_TOO_DEEP',
+    label: 'Too deep — buried past safe cover / frac risk',
+    tag: 'depth',
+  },
   TF_PANIC_DOGLEG: {
     id: 'TF_PANIC_DOGLEG',
     label: 'Panic dogleg — over-steer inventing bend in easy dirt',
-    tag: 'steer-death',
+    tag: 'steer-warn',
   },
   TF_PACKED_HEAD: {
     id: 'TF_PACKED_HEAD',
@@ -40,9 +51,13 @@ export function createPhysicsEmitter(): PhysicsEmitterState {
 function verbsFor(causes: CauseSnap[]): VerbSnap[] {
   const ids = new Set(causes.map((c) => c.id))
   const chips: VerbSnap[] = []
-  if (ids.has('TF_PANIC_DOGLEG')) {
+  if (ids.has('TF_UTILITY_STRIKE')) {
     chips.push({ id: 'RV_EASE_THRUST', label: 'Ease thrust', enabled: true })
-    chips.push({ id: 'RV_HOLD_RPM', label: 'Hold grade / rotate', enabled: true })
+    chips.push({ id: 'RV_HOLD_RPM', label: 'Hold / back off', enabled: true })
+  }
+  if (ids.has('TF_TOO_DEEP')) {
+    chips.push({ id: 'RV_HOLD_RPM', label: 'Climb / flatten', enabled: true })
+    chips.push({ id: 'RV_EASE_THRUST', label: 'Ease thrust', enabled: true })
   }
   if (ids.has('TF_PACKED_HEAD') || ids.has('TF_FRAC_THIN')) {
     chips.push({
@@ -61,12 +76,18 @@ function symptomsFor(
   causes: CauseSnap[],
 ): TickSnap['symptoms'] {
   const s: TickSnap['symptoms'] = []
-  if (state.panicDoglegWarn && !state.taughtFail) {
+  if (state.panicDoglegWarn && state.taughtFail !== 'TF_PANIC_DOGLEG') {
     s.push({ id: 'oversteer', label: 'OVER-STEER', severity: 'warn' })
   }
   for (const c of causes) {
+    if (c.id === 'TF_UTILITY_STRIKE') {
+      s.push({ id: 'utility_strike', label: 'UTILITY STRIKE', severity: 'critical' })
+    }
+    if (c.id === 'TF_TOO_DEEP') {
+      s.push({ id: 'too_deep', label: 'TOO DEEP', severity: 'critical' })
+    }
     if (c.id === 'TF_PANIC_DOGLEG') {
-      s.push({ id: 'panic_dogleg', label: 'PANIC DOGLEG', severity: 'critical' })
+      s.push({ id: 'panic_dogleg', label: 'PANIC DOGLEG', severity: 'warn' })
     }
     if (c.id === 'TF_PACKED_HEAD') {
       s.push({ id: 'packed', label: 'HEAD PACKED', severity: 'critical' })
@@ -82,36 +103,69 @@ function symptomsFor(
     s.push({ id: 'daylight', label: 'DAYLIGHT', severity: 'info' })
   }
   if (state.outcome === 'wrong_daylight') {
-    s.push({ id: 'wrong_daylight', label: 'OFF-GRADE EXIT', severity: 'warn' })
+    s.push({ id: 'wrong_daylight', label: 'EXIT OFF WINDOW', severity: 'warn' })
+  }
+  const gradeHoldPct =
+    state.gradeHoldSamples > 0
+      ? (100 * state.gradeHoldGood) / state.gradeHoldSamples
+      : 100
+  if (
+    state.outcome === 'daylight' &&
+    state.gradeHoldSamples >= 8 &&
+    gradeHoldPct < LIGHT_FILL_TEACH.gradeHoldPass * 100
+  ) {
+    s.push({
+      id: 'grade_soft',
+      label: `GRADE HOLD ${gradeHoldPct.toFixed(0)}%`,
+      severity: 'warn',
+    })
   }
   return s
 }
 
 function debriefFor(state: GameState): TickSnap['debrief'] | undefined {
   if (state.phase !== 'debrief') return undefined
+  const gradeHoldPct =
+    state.gradeHoldSamples > 0
+      ? (100 * state.gradeHoldGood) / state.gradeHoldSamples
+      : 0
+
   if (state.taughtFail && CAUSE_META[state.taughtFail]) {
     const cause = CAUSE_META[state.taughtFail]
+    let body =
+      state.level?.failSentence ??
+      'Real job fail — strike a utility or bury the head and the ticket dies.'
+    if (state.taughtFail === 'TF_UTILITY_STRIKE') {
+      body =
+        'You got too close to a painted locate (gas / water / telecom). Clearance is the job — not inventing bend.'
+    } else if (state.taughtFail === 'TF_TOO_DEEP') {
+      body =
+        'Cover went past the safe depth band — that is frac / bury territory. Climb earlier next time.'
+    }
     return {
       headline: cause.label,
-      body:
-        state.level?.failSentence ??
-        'In easy ground with good mud, the bore dies from how you steer — not from the dirt.',
+      body,
       ticketScore: state.ticketScore,
     }
   }
   if (state.outcome === 'daylight') {
+    const gradeNote =
+      state.gradeHoldSamples >= 8 &&
+      gradeHoldPct < LIGHT_FILL_TEACH.gradeHoldPass * 100
+        ? ` Pass with notes: grade hold ${gradeHoldPct.toFixed(0)}% (soft score only — you missed utilities).`
+        : ''
     return {
       headline: 'Daylight — clean pass',
       body:
-        state.level?.pass ??
-        'Exit window; grade held; no pack/frac; no panic dogleg.',
+        (state.level?.pass ??
+          'Exit window; no utility strike; no bury.') + gradeNote,
       ticketScore: state.ticketScore,
     }
   }
   if (state.outcome === 'wrong_daylight') {
     return {
-      headline: 'Daylight — soft teaching gate',
-      body: 'Product daylit but grade hold was thin. Retry and hold ±1.5° in the middle.',
+      headline: 'Daylight — exit outside window (soft)',
+      body: `You reached the far end but cover was still deep (~${state.coverDepth_ft.toFixed(1)} ft). Soft fail on exit window — not a mystery steer fail. Grade hold ${gradeHoldPct.toFixed(0)}% soft-scores the ticket.`,
       ticketScore: state.ticketScore,
     }
   }
@@ -213,9 +267,14 @@ export function emitFromGameState(
     })(),
     flags: {
       taughtFail: state.taughtFail,
+      strike: state.taughtFail === 'TF_UTILITY_STRIKE',
       daylight: state.outcome === 'daylight',
       wrongDaylightSoft: state.outcome === 'wrong_daylight',
-      cleanPass: state.outcome === 'daylight' && !state.taughtFail,
+      cleanPass:
+        state.outcome === 'daylight' &&
+        !state.taughtFail &&
+        (state.gradeHoldSamples < 8 ||
+          gradeHoldPct >= teach.gradeHoldPass * 100),
     },
     debrief: debriefFor(state),
   }

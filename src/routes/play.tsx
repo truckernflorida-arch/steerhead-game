@@ -1,8 +1,8 @@
 /**
  * Play route — Lesson 1 = S01 Dirt Yard (light_fill / dirt).
- * Crew workflow: rig entry pitch → drill first rod → clock/push on Rod 2+.
+ * Crew workflow: rig entry pitch → drill first rod → Drill OR Push every rod.
  * Target steering on Falcon/locator · Ground locate map with APWA paint.
- * Brief: set rig pitch only; first rod is just drill (no clock).
+ * Brief: set rig pitch; once piloting, both Just drill and Push are available.
  */
 import { createFileRoute } from '@tanstack/react-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -130,13 +130,8 @@ function PlayPage() {
       const edge = (k: string) => keys[k] && !prev[k]
 
       const phase = stateRef.current.phase
-      const steerUnlocked =
-        stateRef.current.rodIndex >= 2 ||
-        stateRef.current.station_ft >=
-          (stateRef.current.rodLength_ft || 10) - 1e-6
-
-      // Clock / hour keys only after first rod (HDD: first rod is just drill)
-      if (steerUnlocked) {
+      // Clock available in brief (optional) and all pilot rods (Push uses it)
+      if (phase === 'brief' || phase === 'pilot') {
         if (edge('q') || edge('Q')) clock.current.nudge(-15)
         if (edge('e') || edge('E')) clock.current.nudge(15)
         for (let h = 1; h <= 9; h++) {
@@ -240,11 +235,8 @@ function PlayPage() {
   }
 
   function onClockAngle(deg: number) {
-    const unlocked =
-      stateRef.current.rodIndex >= 2 ||
-      stateRef.current.station_ft >=
-        (stateRef.current.rodLength_ft || 10) - 1e-6
-    if (!unlocked) return
+    const phase = stateRef.current.phase
+    if (phase === 'debrief') return
     const a = normalizeAngleDeg(deg)
     clock.current.setAngleDeg(a)
     setClockAngle(a)
@@ -266,8 +258,7 @@ function PlayPage() {
 
   function onPushStep() {
     if (stateRef.current.phase !== 'pilot') return
-    // Steered push is Rod 2+ only
-    if (stateRef.current.rodIndex <= 1) return
+    // Steered push available on every rod (incl. rod 1)
     pushStepRef.current = true
   }
 
@@ -277,12 +268,14 @@ function PlayPage() {
       startPushRef.current = true
       return
     }
-    if (s.phase !== 'pilot' || s.rodIndex > 1) return
-    // Continue / re-shove remaining first rod (straight)
-    pushStepRef.current = true
+    // After start, Just drill hold is the pilot drill control
   }
 
   function onDrillDown() {
+    if (stateRef.current.phase === 'brief') {
+      startPushRef.current = true
+      return
+    }
     if (stateRef.current.phase !== 'pilot') return
     drillStraightRef.current = true
     setDrillActive(true)
@@ -388,9 +381,10 @@ function PlayPage() {
                 </p>
               </div>
               <p className="spud-hint">
-                First rod: <strong>Drill</strong> (no clock needed) — or set
-                clock now as an option for later rods. Steered push unlocks
-                after ~10 ft.
+                First rod: <strong>Drill first rod in</strong> to start. Once
+                piloting, use <strong>Just drill</strong> or{' '}
+                <strong>Push N ft @ clock</strong> on every rod (clock optional
+                on rod 1).
               </p>
               <button
                 type="button"
@@ -417,6 +411,7 @@ function PlayPage() {
         onDrillUp={onDrillUp}
         drillActive={drillActive}
         onDrillFirstRod={onDrillFirstRod}
+        stationFt={snap.hud.stationFt ?? 0}
       />
 
       <FlowOverlay snap={snap} level={level} onRetry={onRetry} />
@@ -506,19 +501,13 @@ function PlayPage() {
         />
         {inBrief ? (
           <p className="touch-speed-note">
-            Set rig pitch, then hit Drill first rod in (no clock required).
-            Clock is optional now; steered Push unlocks after ~10 ft.
-          </p>
-        ) : rodIndex <= 1 ? (
-          <p className="touch-speed-note">
-            Drilling first rod along entry pitch. Clock optional; Push N ft
-            unlocks after this rod (~10 ft).
+            Set rig pitch, then hit Drill first rod in. After start: Just drill
+            (straight) or Push N ft @ clock on every rod.
           </p>
         ) : (
           <p className="touch-speed-note">
-            Now you can push / set clock. Continuous thrust (Drill) or
-            deliberate 2 ft pushes. Falcon TARGET STEERING shows pitch band vs
-            plan.
+            Pilot: Just drill (straight) or Push N ft @ clock — both always on.
+            Miss locates; do not bury. Falcon TARGET STEERING shows pitch band.
           </p>
         )}
       </div>

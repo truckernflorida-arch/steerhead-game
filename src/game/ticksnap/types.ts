@@ -14,6 +14,8 @@ export type CauseId =
   | 'TF_PACK_FRAC_THICK'
   | 'TF_FRAC_THIN'
   | 'TF_PANIC_DOGLEG'
+  | 'TF_UTILITY_STRIKE'
+  | 'TF_TOO_DEEP'
   | (string & { readonly __causeBrand?: unique symbol })
 
 export type VerbId =

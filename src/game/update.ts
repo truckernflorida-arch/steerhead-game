@@ -1,10 +1,9 @@
 /**
  * Lesson 1 update: dirt / light_fill feel + curved ROW path + daylight.
  * Discrete rod push (default 2 ft) + Just drill (straight) + lateral walk.
- * First rod: straight along entry pitch (no clock); clock/push from Rod 2+.
- * Rig entry pitch seeds Spud; rods advance along curve.
- * Thrust/ROP + clock/keyboard steer + mild walkBias; taught-fail TF_PANIC_DOGLEG.
- * Secondary TF_PACKED_HEAD / TF_FRAC_THIN only if player kills GPM.
+ * Every rod: Drill OR Push (clock available on rod 1 for steered push).
+ * Hard fails: utility strike, too deep. Panic dogleg = warn-only.
+ * Grade hold soft-scores; does not invent wrong_daylight when clear of utilities.
  */
 import type { GameOutcome, GamePhase, GameState } from './state'
 import {
@@ -34,6 +33,7 @@ import {
   rodTotalFromLength,
 } from './bore/targetSteering'
 import { scoreLesson1 } from './score/lesson1'
+import { checkUtilityStrike } from './collision/utilities'
 
 function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t
@@ -56,7 +56,7 @@ function finalizeScore(state: GameState): number {
   const pressureVolumeBand = clamp01(state.gpmNorm)
   const cleanAtPull = 0.8
   const exitBullseye =
-    state.outcome === 'daylight'
+    state.outcome === 'daylight' || state.outcome === 'wrong_daylight'
       ? clamp01(
           1 -
             Math.abs(state.coverDepth_ft) /
@@ -72,6 +72,11 @@ function finalizeScore(state: GameState): number {
     exitBullseye,
     pathScrapes: scrapes,
   }).ticket
+}
+
+/** Hard depth limit — bury past this = frac-ish / too deep job fail */
+function maxCoverDepthFt(state: GameState): number {
+  return Math.max(11, state.profile.targetDepth_ft + 5)
 }
 
 export function update(
@@ -148,7 +153,7 @@ export function update(
 
   if (state.phase === 'brief') {
     if (input.startPush) {
-      // First rod: seed pitch from rig entry; shove ~10 ft straight (no clock)
+      // First rod start: seed pitch from rig entry; shove ~10 ft straight
       const rodLen = state.rodLength_ft || ROD_LENGTH_FT
       return {
         ...state,
@@ -182,7 +187,8 @@ export function update(
 
   if (
     state.phase === 'debrief' ||
-    state.taughtFail === 'TF_PANIC_DOGLEG' ||
+    state.taughtFail === 'TF_UTILITY_STRIKE' ||
+    state.taughtFail === 'TF_TOO_DEEP' ||
     state.taughtFail === 'TF_PACKED_HEAD' ||
     state.taughtFail === 'TF_FRAC_THIN' ||
     state.outcome === 'daylight' ||
@@ -212,21 +218,23 @@ export function update(
 
   const teach = LIGHT_FILL_TEACH
   const clockAngleDeg = input.clockAngleDeg || state.clockAngleDeg
-  const drillStraight = Boolean(input.drillStraight)
 
   const rodLen = state.rodLength_ft || ROD_LENGTH_FT
-  // First rod (~0–10 ft): straight along entry pitch — no clock steer
   const onFirstRod = state.station_ft < rodLen - 1e-6
 
   let pendingPush_ft = state.pendingPush_ft
+  // Steered push available on every rod (incl. rod 1) once in pilot
   if (input.pushStep && pendingPush_ft <= 0.01) {
-    if (onFirstRod) {
-      // First rod: only straight remaining length (no clock push)
-      pendingPush_ft = Math.max(0.5, rodLen - state.station_ft)
-    } else {
-      pendingPush_ft = pushLen
-    }
+    pendingPush_ft = pushLen
   }
+
+  // Brief-start first-rod shove stays straight until that pending drains
+  const firstRodAutoShove =
+    onFirstRod &&
+    state.drillStraight &&
+    pendingPush_ft > 0.01 &&
+    !input.pushStep
+  const drillStraight = Boolean(input.drillStraight) || firstRodAutoShove
 
   // Continuous thrust (slider / W / Just drill hold) OR discrete push remainder
   let thrust = clamp01(Math.max(input.thrust, input.touchSpeed))
@@ -265,14 +273,12 @@ export function update(
         (input.keys['ArrowRight'] ? 1 : 0),
     ),
   )
+
+  // Just drill / first-rod auto-shove = straight (no clock). Push = clock steer.
   let steerInput: number
   let yawInput: number
-  if (onFirstRod) {
-    // Just drill first rod — hold entry dive; ignore clock / push steer
-    steerInput = 0
-    yawInput = 0
-  } else if (drillStraight) {
-    steerInput = keyboardThrash * 0.35
+  if (drillStraight) {
+    steerInput = firstRodAutoShove ? 0 : keyboardThrash * 0.35
     yawInput = 0
   } else {
     steerInput = Math.max(-1, Math.min(1, input.steer))
@@ -280,26 +286,29 @@ export function update(
   }
 
   const dPitchWanted =
-    onFirstRod
+    drillStraight && (firstRodAutoShove || onFirstRod)
       ? 0
       : ds > 1e-8
         ? steerInput * soil.steerAuthority * soil.maxSteerDegPerM * ds
         : 0
-  let dPitch = onFirstRod ? 0 : clampSteerDeltaDeg(dPitchWanted, ds, soil)
+  let dPitch = firstRodAutoShove
+    ? 0
+    : clampSteerDeltaDeg(dPitchWanted, ds, soil)
 
   const walkPhase = state.walkPhase + Math.max(dt, 0)
-  if (!onFirstRod) {
+  if (!firstRodAutoShove) {
     const noise = Math.sin(walkPhase * 1.7) * soil.walkNoiseAmp * 0.15 * ds
     dPitch += soil.walkBias_deg_m * ds + noise
   }
 
-  // First rod: hold rig entry pitch (level/dive from setup only)
-  const pitchDeg = onFirstRod ? state.entryPitchDeg : state.pitchDeg + dPitch
+  const pitchDeg = firstRodAutoShove
+    ? state.entryPitchDeg
+    : state.pitchDeg + dPitch
   const pitchRad = (pitchDeg * Math.PI) / 180
 
   const dSta_ft = ds * Math.cos(pitchRad) * M_TO_FT
   const dCover_ft = ds * Math.sin(pitchRad) * M_TO_FT
-  const dLat = onFirstRod
+  const dLat = firstRodAutoShove
     ? 0
     : ds *
       M_TO_FT *
@@ -367,20 +376,16 @@ export function update(
   let ticketScore = state.ticketScore
 
   const bendRate = ds > 1e-4 ? Math.abs(dPitchWanted) / ds : 0
-  // Panic dogleg is mainly for steered rods (clock push); first rod is straight
-  const oversteering = !onFirstRod && bendRate > teach.panicDoglegDegPerM
+  // Mild oversteer → warn only. Never hard-fail TF_PANIC_DOGLEG clear of utilities.
+  const oversteering = !drillStraight && bendRate > teach.panicDoglegDegPerM
 
   if (oversteering) {
     oversteerTimer += Math.max(dt, 0)
-    if (!panicDoglegWarn && oversteerTimer > 0.35) panicDoglegWarn = true
-    if (oversteerTimer > 0.9) {
+    if (!panicDoglegWarn && oversteerTimer > 0.55) panicDoglegWarn = true
+    if (oversteerTimer > 1.4) {
       panicDoglegCount += 1
       oversteerTimer = 0
-      if (panicDoglegCount > teach.panicDoglegWarnCount) {
-        taughtFail = 'TF_PANIC_DOGLEG'
-        phase = 'debrief'
-        outcome = 'taught_fail'
-      }
+      // warn-only: do not set taughtFail / debrief from panic dogleg
     }
   } else {
     oversteerTimer = Math.max(0, oversteerTimer - Math.max(dt, 0) * 2)
@@ -393,6 +398,28 @@ export function update(
     nextGpm = Math.min(1, state.gpmNorm + 0.2 * Math.max(dt, 0))
   }
 
+  // --- Hard job fails: utility strike + too deep ---
+  if (!taughtFail) {
+    const util = checkUtilityStrike({
+      station_ft,
+      coverDepth_ft,
+      lateral_ft,
+      apwa: state.profile.apwa,
+    })
+    if (util.strike) {
+      taughtFail = 'TF_UTILITY_STRIKE'
+      phase = 'debrief'
+      outcome = 'taught_fail'
+    }
+  }
+
+  if (!taughtFail && coverDepth_ft > maxCoverDepthFt(state)) {
+    taughtFail = 'TF_TOO_DEEP'
+    phase = 'debrief'
+    outcome = 'taught_fail'
+  }
+
+  // Secondary mud starvation (player-killed GPM) — still real job fails
   if (!taughtFail && nextGpm < 0.05) {
     if (thrust > 0.5) {
       taughtFail = 'TF_PACKED_HEAD'
@@ -405,20 +432,23 @@ export function update(
     }
   }
 
+  // Daylight: pass if in exit window. Grade hold soft-scores only — never
+  // invent wrong_daylight from gradeHold when clear of utilities.
   if (
     !taughtFail &&
     nearDaylight(state.profile, station_ft, coverDepth_ft) &&
     boreProgress >= 0.9
   ) {
-    const gradeHold =
-      gradeHoldSamples > 0 ? gradeHoldGood / gradeHoldSamples : 0
-    if (gradeHold >= teach.gradeHoldPass || gradeHoldSamples < 8) {
-      outcome = 'daylight'
-      phase = 'debrief'
-    } else {
-      outcome = 'wrong_daylight'
-      phase = 'debrief'
-    }
+    outcome = 'daylight'
+    phase = 'debrief'
+  } else if (
+    !taughtFail &&
+    station_ft >= state.profile.length_ft - 0.35 &&
+    coverDepth_ft > Math.max(2.5, state.profile.exitBullseye_m * M_TO_FT * 2)
+  ) {
+    // Reached shot end clearly outside exit window — soft wrong-daylight note
+    outcome = 'wrong_daylight'
+    phase = 'debrief'
   }
 
   if (coverDepth_ft < 0.15 && boreProgress < 0.85) {
@@ -446,7 +476,7 @@ export function update(
     rodTotal,
     pushLength_ft: pushLen,
     pendingPush_ft,
-    drillStraight,
+    drillStraight: Boolean(input.drillStraight) || firstRodAutoShove,
     panicDoglegCount,
     panicDoglegWarn,
     taughtFail,

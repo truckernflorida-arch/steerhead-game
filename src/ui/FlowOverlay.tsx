@@ -20,9 +20,11 @@ export function FlowOverlay({ snap, level, onRetry }: Props) {
           Lesson 1 · Curved road ROW · Locates · Target steering
         </p>
         <p className="flow-callout">
-          Set <strong>rig entry pitch</strong>, then drill the first rod in
-          (just drill — no clock). Locates are painted on the Ground locate
-          map. Clock / push steering unlocks after rod 1 (~10 ft).
+          Set <strong>rig entry pitch</strong>, then{' '}
+          <strong>Drill first rod in</strong>. Once piloting, every rod has{' '}
+          <strong>Just drill (straight)</strong> or{' '}
+          <strong>Push N ft @ clock</strong> — both always available. Clock is
+          optional on rod 1.
         </p>
         <ul className="flow-list">
           <li>
@@ -34,14 +36,17 @@ export function FlowOverlay({ snap, level, onRetry }: Props) {
           </li>
           <li>APWA: yellow gas on road · blue water parallel (brief)</li>
           <li>
-            Pass: exit window · gradeHold ≥70% · ≤1 panic dogleg warn
+            Hard fail: utility strike · too deep (bury). Over-steer = warn only.
           </li>
-          <li>Fail teaches steer death — not the dirt</li>
+          <li>
+            Grade hold soft-scores the ticket — not a mystery fail when clear
+            of locates.
+          </li>
         </ul>
         <ol className="flow-steps">
           <li>Raise/lower rig — set entry pitch (slider)</li>
-          <li>Drill first rod in — spin &amp; shove ~10 ft (no clock)</li>
-          <li>Rod 2+: set clock + Push N ft along the curve</li>
+          <li>Drill first rod in — then Drill or Push on every rod</li>
+          <li>Miss yellow/blue locates · do not bury the head</li>
           <li>Watch TARGET STEERING on Falcon + Ground locate map</li>
         </ol>
       </aside>
@@ -51,6 +56,9 @@ export function FlowOverlay({ snap, level, onRetry }: Props) {
   if (snap.phase === 'debrief' && snap.debrief) {
     const d = snap.debrief
     const causeLabel = snap.causes[0]?.label
+    const soft =
+      snap.flags.wrongDaylightSoft ||
+      (snap.flags.daylight && !snap.flags.taughtFail)
     return (
       <div className="flow-overlay" role="dialog" aria-label="Debrief">
         <div className="flow-card">
@@ -61,6 +69,9 @@ export function FlowOverlay({ snap, level, onRetry }: Props) {
             <p className="flow-score">
               Ticket score:{' '}
               <strong>{(d.ticketScore * 100).toFixed(0)}%</strong>
+              {soft && !snap.flags.taughtFail ? (
+                <span className="flow-score-note"> · soft grade notes OK</span>
+              ) : null}
             </p>
           ) : null}
           {level.debriefChecklist && level.debriefChecklist.length > 0 ? (

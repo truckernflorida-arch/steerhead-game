@@ -1,6 +1,7 @@
 /**
  * Rod / push marker + deliberate push + Just drill (straight).
- * Rod 1 = just drill (no clock push). Clock/push unlocks on Rod 2+.
+ * Every rod (incl. rod 1 once in pilot): Drill OR Push — both always available.
+ * Brief-only label "Drill first rod in" never sticks after start.
  */
 import { angleDegToHour } from '#/game/input/clock'
 import { DEFAULT_PUSH_FT, ROD_LENGTH_FT } from '#/game/state'
@@ -13,14 +14,16 @@ type Props = {
   phase: string
   rodIndex: number
   rodTotal: number
-  /** Discrete steered push at current clock (Rod 2+) */
+  /** Discrete steered push at current clock (all rods in pilot) */
   onPushStep: () => void
-  /** Hold: straight drill (no clock steer) — Rod 2+ */
+  /** Hold: straight drill (no clock steer) */
   onDrillDown: () => void
   onDrillUp: () => void
   drillActive: boolean
-  /** Click: continue / shove remaining first rod (straight) */
+  /** Brief only: start first rod from plan card / rod strip */
   onDrillFirstRod?: () => void
+  /** Station along shot (ft) — used for first-rod remaining copy */
+  stationFt?: number
 }
 
 const PUSH_OPTIONS = [1, 2, 3] as const
@@ -38,46 +41,52 @@ export function RodControls({
   onDrillUp,
   drillActive,
   onDrillFirstRod,
+  stationFt = 0,
 }: Props) {
   const hour = angleDegToHour(clockAngleDeg)
   const piloting = phase === 'pilot'
+  const briefing = phase === 'brief'
   const pushing = pendingPushFt > 0.05
-  const firstRod = rodIndex <= 1
-  const steerUnlocked = rodIndex >= 2
+  const onFirstRod = rodIndex <= 1
+  const firstRodRemaining = Math.max(0, ROD_LENGTH_FT - stationFt)
   const pushLabel = `Push ${pushLengthFt} ft @ ${hour} o'clock`
+
+  let drillLabel = 'Just drill (straight)'
+  if (piloting && onFirstRod && (pushing || drillActive)) {
+    drillLabel = pushing
+      ? `Drilling first rod… ${pendingPushFt.toFixed(1)} ft left`
+      : `Drilling first rod… ${firstRodRemaining.toFixed(1)} ft left`
+  } else if (piloting && onFirstRod) {
+    drillLabel = 'Just drill (straight)'
+  }
 
   return (
     <section className="rod-controls" aria-label="Rod and push controls">
       <div className="rod-marker" role="status">
         <span className="rod-marker-main">
           Rod {rodIndex} of {rodTotal} · {ROD_LENGTH_FT} ft rod
-          {steerUnlocked
+          {piloting
             ? ` · push ${pushLengthFt} ft @ ${hour} o'clock`
-            : ' · first rod — drill (clock optional)'}
+            : ' · set pitch, then drill first rod'}
         </span>
         {pushing ? (
           <span className="rod-marker-pending">
-            {firstRod
+            {onFirstRod && drillActive
               ? `drilling first rod… ${pendingPushFt.toFixed(1)} ft left`
               : `pushing… ${pendingPushFt.toFixed(1)} ft left`}
           </span>
         ) : null}
-        {drillActive && steerUnlocked ? (
+        {drillActive && piloting && !pushing ? (
           <span className="rod-marker-drill">Just drill — straight / level</span>
         ) : null}
-        {firstRod && piloting && !pushing ? (
+        {piloting ? (
           <span className="rod-marker-drill">
-            Spin &amp; shove first {ROD_LENGTH_FT} ft — no clock yet
-          </span>
-        ) : null}
-        {steerUnlocked && piloting ? (
-          <span className="rod-marker-drill">
-            Now you can push / set clock
+            Drill (straight) or Push N ft @ clock — both available
           </span>
         ) : null}
       </div>
 
-      {steerUnlocked ? (
+      {piloting || briefing ? (
         <div className="rod-push-len" role="group" aria-label="Push length">
           <span className="rod-push-len-label">Push length</span>
           {PUSH_OPTIONS.map((ft) => (
@@ -88,7 +97,7 @@ export function RodControls({
                 pushLengthFt === ft ? 'rod-chip rod-chip-on' : 'rod-chip'
               }
               onClick={() => onPushLengthFt(ft)}
-              disabled={phase === 'debrief'}
+              disabled={false}
             >
               {ft} ft
             </button>
@@ -97,21 +106,13 @@ export function RodControls({
       ) : null}
 
       <div className="rod-actions">
-        {firstRod ? (
+        {briefing ? (
           <button
             type="button"
-            className={
-              pushing
-                ? 'rod-btn rod-btn-drill rod-btn-drill-on'
-                : 'rod-btn rod-btn-drill'
-            }
+            className="rod-btn rod-btn-drill"
             onClick={() => onDrillFirstRod?.()}
-            disabled={phase === 'debrief' || pushing}
-            title={
-              piloting
-                ? `Shove remaining first ${ROD_LENGTH_FT} ft straight (no clock required)`
-                : 'Set rig pitch, then Drill — clock is optional'
-            }
+            disabled={false}
+            title="Set rig pitch, then Drill — clock optional for later push"
           >
             Drill first rod in
           </button>
@@ -125,7 +126,7 @@ export function RodControls({
               title={
                 piloting
                   ? `Advance ${pushLengthFt} ft at current clock face`
-                  : 'Drill first rod in first'
+                  : 'Start the bore first'
               }
             >
               {pushLabel}
@@ -133,11 +134,11 @@ export function RodControls({
             <button
               type="button"
               className={
-                drillActive
+                drillActive || (onFirstRod && pushing)
                   ? 'rod-btn rod-btn-drill rod-btn-drill-on'
                   : 'rod-btn rod-btn-drill'
               }
-              disabled={!piloting || pushing}
+              disabled={!piloting || (pushing && !drillActive)}
               onPointerDown={(e) => {
                 e.preventDefault()
                 onDrillDown()
@@ -147,19 +148,21 @@ export function RodControls({
               onPointerCancel={onDrillUp}
               title={
                 piloting
-                  ? 'Hold: straight / level drill (no steer)'
-                  : 'Drill first rod in first'
+                  ? onFirstRod && pushing
+                    ? `Drilling first rod — ${pendingPushFt.toFixed(1)} ft left`
+                    : 'Hold: straight / level drill (no steer)'
+                  : 'Start the bore first'
               }
             >
-              Just drill (level / straight)
+              {drillLabel}
             </button>
           </>
         )}
       </div>
       <p className="rod-hint">
-        {firstRod
-          ? `Rod 1: Drill to spin & shove the first ${ROD_LENGTH_FT} ft along entry pitch — clock is optional. Steered push unlocks on Rod 2+.`
-          : `Each ${ROD_LENGTH_FT} ft rod: choose dive / level / steer via clock + optional ${DEFAULT_PUSH_FT} ft pushes. Target steering on Falcon shows pitch band vs plan. Continuous thrust via slider / W.`}
+        {briefing
+          ? `Brief: set entry pitch, then Drill first rod in (~${ROD_LENGTH_FT} ft). Once piloting, every rod has Just drill OR Push N ft @ clock.`
+          : `Each ${ROD_LENGTH_FT} ft rod: Just drill (straight) or Push ${DEFAULT_PUSH_FT} ft @ clock. Clock optional on rod 1; both options always available in pilot.`}
       </p>
     </section>
   )

@@ -17,8 +17,8 @@
         "locked": true
       },
       "plantFail": "none",
-      "pass": "exit window; gradeHold>=70%; no pack/frac; <=1 panic dogleg; no strike",
-      "failSentence": "In easy ground with good mud, the bore dies from how you steer \u2014 not from the dirt.",
+      "pass": "exit window; no utility strike; no bury/too-deep; gradeHold soft-scores; over-steer warn-only",
+      "failSentence": "Hard fails are real job fails: strike a locate or bury the head. Mild over-steer only warns; grade soft-scores.",
       "rev": 2,
       "spineLesson": 1,
       "mapsTo": "LEARNING_CORE_LOOP.md Lesson 1",
