@@ -756,3 +756,243 @@ code {
     font-size: 0.85rem;
   }
 }
+
+/* --- Falcon F5–style remote display --- */
+.falcon-remote {
+  flex: 1 1 260px;
+  max-width: 340px;
+  background: linear-gradient(160deg, #1a1e22 0%, #0c1014 55%, #151a1f 100%);
+  border: 3px solid #3a424a;
+  border-radius: 14px;
+  padding: 0.55rem 0.7rem 0.45rem;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    0 8px 24px rgba(0, 0, 0, 0.45),
+    0 0 0 1px #1a1f24;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.falcon-bezel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 0.15rem;
+}
+
+.falcon-brand {
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  color: #8a9aa6;
+}
+
+.falcon-stubs {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.falcon-batt {
+  display: inline-flex;
+  width: 28px;
+  height: 12px;
+  border: 1px solid #5a6a74;
+  border-radius: 2px;
+  padding: 1px;
+  position: relative;
+}
+.falcon-batt::after {
+  content: '';
+  position: absolute;
+  right: -4px;
+  top: 3px;
+  width: 2px;
+  height: 6px;
+  background: #5a6a74;
+  border-radius: 0 1px 1px 0;
+}
+.falcon-batt i {
+  display: block;
+  height: 100%;
+  background: #e6c84a;
+  border-radius: 1px;
+}
+
+.falcon-sig.signal-bars {
+  height: 0.9rem;
+}
+
+.falcon-screen {
+  background: #060a0e;
+  border: 2px solid #24303a;
+  border-radius: 8px;
+  padding: 0.55rem 0.65rem 0.7rem;
+  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.6);
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.falcon-label {
+  display: block;
+  font-size: 0.58rem;
+  letter-spacing: 0.1em;
+  color: #6b7c88;
+  font-weight: 700;
+}
+
+.falcon-pitch-block {
+  text-align: center;
+  border-bottom: 1px solid #1e2830;
+  padding-bottom: 0.45rem;
+}
+
+.falcon-pitch-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
+  margin: 0.15rem 0;
+}
+
+.falcon-sense {
+  font-size: 1.6rem;
+  color: #e6c84a;
+  line-height: 1;
+  width: 1.4rem;
+}
+
+.falcon-pitch-val {
+  font-variant-numeric: tabular-nums;
+  font-size: 2.35rem;
+  font-weight: 800;
+  color: #5ec8c8;
+  letter-spacing: -0.02em;
+  text-shadow: 0 0 12px rgba(94, 200, 200, 0.35);
+  line-height: 1;
+}
+
+.falcon-unit {
+  font-size: 0.55em;
+  font-weight: 700;
+  margin-left: 0.05em;
+  color: #8fdada;
+}
+
+.falcon-sense-tag {
+  font-size: 0.65rem;
+  letter-spacing: 0.12em;
+  color: #e6c84a;
+  font-weight: 700;
+}
+
+.falcon-mid {
+  display: flex;
+  gap: 0.65rem;
+  align-items: center;
+}
+
+.falcon-clock-mini {
+  flex: 0 0 auto;
+  text-align: center;
+}
+
+.falcon-clock-mini svg {
+  display: block;
+  margin: 0 auto 0.2rem;
+}
+
+.falcon-clock-ring {
+  fill: none;
+  stroke: #3d4a54;
+  stroke-width: 1.5;
+}
+
+.falcon-clock-dial {
+  fill: #0a1016;
+  stroke: #2c3640;
+  stroke-width: 1;
+}
+
+.falcon-clock-num {
+  fill: #9fb3c3;
+  font-size: 8px;
+  font-family: system-ui, sans-serif;
+  font-weight: 700;
+}
+
+.falcon-clock-hand {
+  stroke: #5ec8c8;
+  stroke-width: 3.5;
+  filter: drop-shadow(0 0 3px #5ec8c8);
+}
+
+.falcon-clock-hub {
+  fill: #5ec8c8;
+}
+
+.falcon-hour {
+  display: block;
+  font-size: 0.62rem;
+  color: #c5d4de;
+  font-variant-numeric: tabular-nums;
+  margin-top: 0.1rem;
+}
+
+.falcon-side-meters {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.falcon-meter {
+  background: #0a1016;
+  border: 1px solid #1e2830;
+  border-radius: 5px;
+  padding: 0.35rem 0.45rem;
+}
+
+.falcon-depth {
+  font-variant-numeric: tabular-nums;
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #5ec8c8;
+  text-shadow: 0 0 8px rgba(94, 200, 200, 0.3);
+}
+
+.falcon-entry {
+  font-variant-numeric: tabular-nums;
+  font-size: 1.35rem;
+  font-weight: 800;
+  color: #e6c84a;
+  text-shadow: 0 0 8px rgba(230, 200, 74, 0.25);
+}
+
+.falcon-sub {
+  display: block;
+  font-size: 0.55rem;
+  color: #6b7c88;
+  letter-spacing: 0.06em;
+}
+
+.falcon-foot {
+  font-size: 0.52rem;
+  letter-spacing: 0.08em;
+  color: #4a5864;
+  text-align: center;
+  font-weight: 600;
+}
+
+@media (max-width: 720px) {
+  .falcon-remote {
+    flex: 1 1 100%;
+    max-width: none;
+  }
+  .falcon-pitch-val {
+    font-size: 2rem;
+  }
+}

@@ -35,6 +35,7 @@ import { ClockFace } from '#/ui/ClockFace'
 import { LocatorPanel } from '#/ui/LocatorPanel'
 import { FlowOverlay } from '#/ui/FlowOverlay'
 import { RodControls } from '#/ui/RodControls'
+import { FalconRemote } from '#/ui/FalconRemote'
 
 export const Route = createFileRoute('/play')({ component: PlayPage })
 
@@ -283,6 +284,7 @@ function PlayPage() {
 
       <div className="play-top">
         <LocatorPanel snap={snap} />
+        <FalconRemote snap={snap} />
         <div className="clock-stack">
           <ClockFace
             angleDeg={clockAngle}
