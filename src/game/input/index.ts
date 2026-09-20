@@ -17,7 +17,9 @@ export type InputFrame = {
   retry?: boolean
   /** Edge: consume one discrete push of pushLengthFt at current clock */
   pushStep?: boolean
-  /** Hold: straight drill — no clock steer / spin & shove */
+  /** Edge: discrete straight drill of pushLengthFt (no clock steer) — tap-friendly */
+  drillStep?: boolean
+  /** Hold: continuous straight drill — no clock steer */
   drillStraight?: boolean
   /** Rod push step length (ft); default 2 */
   pushLengthFt?: number

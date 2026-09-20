@@ -60,6 +60,7 @@ function PlayPage() {
   const retryRef = useRef(false)
   const pushStepRef = useRef(false)
   const drillStraightRef = useRef(false)
+  const drillStepRef = useRef(false)
   const pushLengthRef = useRef(DEFAULT_PUSH_FT)
   const entryPitchRef = useRef(DEFAULT_ENTRY_PITCH_DEG)
   const stateRef = useRef<GameState>(createGameState(level))
@@ -188,6 +189,7 @@ function PlayPage() {
           startPush: startPushRef.current,
           retry: retryRef.current,
           pushStep: pushStepRef.current,
+          drillStep: drillStepRef.current,
           drillStraight: drillStraightRef.current,
           pushLengthFt: pushLengthRef.current,
           entryPitchDeg: entryPitchRef.current,
@@ -196,6 +198,7 @@ function PlayPage() {
       startPushRef.current = false
       retryRef.current = false
       pushStepRef.current = false
+      drillStepRef.current = false
       prevKeysRef.current = { ...keys }
 
       const next = update(stateRef.current, input, dt)
@@ -279,8 +282,22 @@ function PlayPage() {
       return
     }
     if (stateRef.current.phase !== 'pilot') return
+    // Hold only — continuous straight; tap uses onDrillStep
     drillStraightRef.current = true
     setDrillActive(true)
+  }
+
+  function onDrillStep() {
+    if (stateRef.current.phase === 'brief') {
+      startPushRef.current = true
+      return
+    }
+    if (stateRef.current.phase !== 'pilot') return
+    if (stateRef.current.pendingPush_ft > 0.05) return
+    pushStepRef.current = false
+    drillStraightRef.current = true
+    setDrillActive(true)
+    drillStepRef.current = true
   }
 
   function onDrillUp() {
@@ -411,6 +428,7 @@ function PlayPage() {
         onPushStep={onPushStep}
         onDrillDown={onDrillDown}
         onDrillUp={onDrillUp}
+        onDrillStep={onDrillStep}
         drillActive={drillActive}
         onDrillFirstRod={onDrillFirstRod}
         stationFt={snap.hud.stationFt ?? 0}

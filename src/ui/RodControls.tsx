@@ -16,7 +16,9 @@ type Props = {
   rodTotal: number
   /** Discrete steered push at current clock (all rods in pilot) */
   onPushStep: () => void
-  /** Hold: straight drill (no clock steer) */
+  /** Tap: discrete straight drill (same length as Push, no clock) */
+  onDrillStep: () => void
+  /** Hold: continuous straight drill (no clock steer) */
   onDrillDown: () => void
   onDrillUp: () => void
   drillActive: boolean
@@ -37,28 +39,20 @@ export function RodControls({
   rodIndex,
   rodTotal,
   onPushStep,
+  onDrillStep,
   onDrillDown,
   onDrillUp,
   drillActive,
   onDrillFirstRod,
-  stationFt = 0,
+  stationFt: _stationFt = 0,
 }: Props) {
   const hour = angleDegToHour(clockAngleDeg)
   const piloting = phase === 'pilot'
   const briefing = phase === 'brief'
   const pushing = pendingPushFt > 0.05
   const onFirstRod = rodIndex <= 1
-  const firstRodRemaining = Math.max(0, ROD_LENGTH_FT - stationFt)
   const pushLabel = `Push ${pushLengthFt} ft @ ${hour} o'clock`
 
-  let drillLabel = 'Just drill (straight)'
-  if (piloting && onFirstRod && (pushing || drillActive)) {
-    drillLabel = pushing
-      ? `Drilling first rod… ${pendingPushFt.toFixed(1)} ft left`
-      : `Drilling first rod… ${firstRodRemaining.toFixed(1)} ft left`
-  } else if (piloting && onFirstRod) {
-    drillLabel = 'Just drill (straight)'
-  }
 
   return (
     <section className="rod-controls" aria-label="Rod and push controls">
@@ -134,27 +128,39 @@ export function RodControls({
             <button
               type="button"
               className={
-                drillActive || (onFirstRod && pushing)
+                drillActive || (onFirstRod && pushing && drillActive)
                   ? 'rod-btn rod-btn-drill rod-btn-drill-on'
                   : 'rod-btn rod-btn-drill'
               }
-              disabled={!piloting || (pushing && !drillActive)}
-              onPointerDown={(e) => {
+              disabled={!piloting || pushing}
+              onClick={(e) => {
                 e.preventDefault()
+                onDrillStep()
+              }}
+              onPointerDown={(e) => {
+                if (e.button !== 0) return
+                // Mark hold; suppress synthetic click double-queue via data flag
+                ;(e.currentTarget as HTMLButtonElement).dataset.holding = '1'
+                e.currentTarget.setPointerCapture?.(e.pointerId)
                 onDrillDown()
               }}
-              onPointerUp={onDrillUp}
-              onPointerLeave={onDrillUp}
+              onPointerUp={(e) => {
+                const el = e.currentTarget as HTMLButtonElement
+                const held = el.dataset.holding === '1'
+                delete el.dataset.holding
+                onDrillUp()
+                // If it was a quick tap, pointerup+click both fire — click handles discrete
+                // If held >~180ms continuous already ran; click still ok (pending guard)
+                void held
+              }}
               onPointerCancel={onDrillUp}
               title={
                 piloting
-                  ? onFirstRod && pushing
-                    ? `Drilling first rod — ${pendingPushFt.toFixed(1)} ft left`
-                    : 'Hold: straight / level drill (no steer)'
+                  ? `Drill ${pushLengthFt} ft straight (tap) · hold for continuous`
                   : 'Start the bore first'
               }
             >
-              {drillLabel}
+              {`Drill ${pushLengthFt} ft straight`}
             </button>
           </>
         )}
@@ -162,7 +168,7 @@ export function RodControls({
       <p className="rod-hint">
         {briefing
           ? `Brief: set entry pitch, then Drill first rod in (~${ROD_LENGTH_FT} ft). Once piloting, every rod has Just drill OR Push N ft @ clock.`
-          : `Each ${ROD_LENGTH_FT} ft rod: Just drill (straight) or Push ${DEFAULT_PUSH_FT} ft @ clock. Clock optional on rod 1; both options always available in pilot.`}
+          : `Each ${ROD_LENGTH_FT} ft rod: Drill N ft straight or Push ${DEFAULT_PUSH_FT} ft @ clock. Clock optional on rod 1; both options always available in pilot.`}
       </p>
     </section>
   )

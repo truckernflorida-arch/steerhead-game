@@ -216,7 +216,7 @@ export function update(
     }
   }
 
-  if (dt <= 0 && !input.pushStep) return state
+  if (dt <= 0 && !input.pushStep && !input.drillStep) return state
 
   const soil = getLesson1Soil()
   if (!soil.unlocked || soil.fourPack !== 'dirt') return state
@@ -231,22 +231,35 @@ export function update(
   const onFirstRod = state.station_ft < rodLen - 1e-6
 
   let pendingPush_ft = state.pendingPush_ft
-  // Brief-start first-rod shove (already pending, drillStraight) stays straight
-  const continuingFirstRodShove =
-    onFirstRod && state.drillStraight && state.pendingPush_ft > 0.01
+  let drillStraight = state.drillStraight
 
-  // Steered push available on every rod (incl. rod 1) once in pilot
+  // Discrete Push @ clock (clears straight mode)
   if (input.pushStep && pendingPush_ft <= 0.01) {
     pendingPush_ft = pushLen
+    drillStraight = false
   }
-
-  // First-rod auto-shove only — pushStep always wins as steered push
-  const firstRodAutoShove = continuingFirstRodShove && !input.pushStep
-  // Discrete Push (or its remainder) applies clock; Just drill / thrust does not
-  const steeredPushActive = pendingPush_ft > 0.01 && !firstRodAutoShove
-  const drillStraight =
-    firstRodAutoShove ||
-    (Boolean(input.drillStraight) && !steeredPushActive)
+  // Discrete Just drill — same length as Push, no clock (tap-friendly)
+  if (input.drillStep && pendingPush_ft <= 0.01) {
+    pendingPush_ft = pushLen
+    drillStraight = true
+  }
+  // Hold: continuous straight drill
+  if (input.drillStraight) {
+    drillStraight = true
+  }
+  // Discrete straight shove in flight stays straight until empty (unless Push takes over)
+  if (pendingPush_ft > 0.01 && state.drillStraight && !input.pushStep) {
+    drillStraight = true
+  }
+  // Clear straight when idle and not holding
+  if (pendingPush_ft <= 0.01 && !input.drillStraight) {
+    drillStraight = false
+  }
+  // First-rod brief auto-shove (already pending + straight) stays straight
+  const firstRodAutoShove =
+    onFirstRod && drillStraight && pendingPush_ft > 0.01 && !input.pushStep
+  // Clock applies only to steered Push remainder — never while drillStraight
+  const steeredPushActive = pendingPush_ft > 0.01 && !drillStraight
 
   // Continuous thrust (slider / W / Just drill hold) OR discrete push remainder
   let thrust = clamp01(Math.max(input.thrust, input.touchSpeed))
