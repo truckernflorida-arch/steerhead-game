@@ -258,7 +258,9 @@ function PlayPage() {
 
   function onPushStep() {
     if (stateRef.current.phase !== 'pilot') return
-    // Steered push available on every rod (incl. rod 1)
+    // Steered push available on every rod (incl. rod 1); clears Just drill hold
+    drillStraightRef.current = false
+    setDrillActive(false)
     pushStepRef.current = true
   }
 

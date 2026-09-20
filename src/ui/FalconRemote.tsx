@@ -174,7 +174,7 @@ export function FalconRemote({ snap }: Props) {
       </div>
 
       <footer className="falcon-foot">
-        TARGET STEERING · SNAP ONLY · NO FAIL INVENT
+        12 = take out (up) · 6 = dive · Push only
       </footer>
     </section>
   )

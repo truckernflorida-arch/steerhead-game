@@ -134,7 +134,7 @@ export function ClockFace({
       <p className="clock-hint">
         {disabled && lockedHint
           ? 'Clock / push unlock after first rod (~10 ft)'
-          : 'Drag · Q/E nudge · 1–9,0 hours · A/D augment'}
+          : "12 = take out (up) · 6 = dive · Drag · Q/E · 1–9,0 · = for 12"}
       </p>
     </div>
   )

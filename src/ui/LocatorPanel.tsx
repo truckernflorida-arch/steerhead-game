@@ -29,6 +29,9 @@ export function LocatorPanel({ snap }: Props) {
         <span className="locator-mode">TARGET STEERING</span>
         <span className="locator-target">target {target.toFixed(0)} ft</span>
       </header>
+      <p className="locator-clock-hint">
+        12 = take out (up) · 6 = dive
+      </p>
 
       {ts ? (
         <div

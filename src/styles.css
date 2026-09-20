@@ -229,6 +229,14 @@ code {
   color: #5ec8c8;
 }
 
+.locator-clock-hint {
+  margin: 0.2rem 0 0;
+  font-size: 0.68rem;
+  letter-spacing: 0.04em;
+  color: #e6c84a;
+  font-weight: 600;
+}
+
 .locator-map {
   position: relative;
   height: 88px;

@@ -211,6 +211,13 @@ export const LIGHT_FILL_TEACH = {
   packLock: 0.95,
   fracAmber: 70,
   fracRedline: 85,
+  /**
+   * Discrete Push teaching pitch (° per ft at |clockAngleToSteer|=1).
+   * 12 o'clock → climb (negative dive): 1 ft ≈ −1°, 2 ft ≈ −2° on light_fill.
+   * Scales by |clockAngleToSteer| so 1:30 is weaker than 12.
+   * Physical maxSteerDegPerM (~0.7°/m) is too small for readable 1–2 ft pushes.
+   */
+  pushPitchDegPerFtAtFull12: 1.0,
 }
 
 export type ResolvedSoil = SoilFourParams & {

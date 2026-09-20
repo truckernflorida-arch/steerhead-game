@@ -14,9 +14,8 @@ import {
   ROD_LENGTH_FT,
 } from './state'
 import type { InputFrame } from './input'
-import { clockAngleToYaw } from './input/clock'
+import { clockAngleToSteer, clockAngleToYaw } from './input/clock'
 import {
-  clampSteerDeltaDeg,
   getLesson1Soil,
   LIGHT_FILL_TEACH,
 } from './env/soil'
@@ -132,7 +131,7 @@ export function update(
           y_ft: origin.y_ft,
         },
       ],
-      clockAngleDeg: input.clockAngleDeg || 180,
+      clockAngleDeg: Number.isFinite(input.clockAngleDeg) ? input.clockAngleDeg : 180,
       rodIndex: 1,
       rodTotal,
       pushLength_ft: pushLen,
@@ -158,7 +157,9 @@ export function update(
       return {
         ...state,
         phase: 'pilot',
-        clockAngleDeg: input.clockAngleDeg || state.clockAngleDeg,
+        clockAngleDeg: Number.isFinite(input.clockAngleDeg)
+          ? input.clockAngleDeg
+          : state.clockAngleDeg,
         pushLength_ft: pushLen,
         entryPitchDeg,
         pitchDeg: entryPitchDeg,
@@ -172,7 +173,9 @@ export function update(
     return {
       ...state,
       t: state.t + Math.max(dt, 0),
-      clockAngleDeg: input.clockAngleDeg || state.clockAngleDeg,
+      clockAngleDeg: Number.isFinite(input.clockAngleDeg)
+        ? input.clockAngleDeg
+        : state.clockAngleDeg,
       pushLength_ft: pushLen,
       entryPitchDeg,
       pitchDeg: entryPitchDeg, // preview on locator / Falcon before Spud
@@ -199,7 +202,9 @@ export function update(
       phase: 'debrief',
       t: state.t + Math.max(dt, 0),
       rop_m_s: 0,
-      clockAngleDeg: input.clockAngleDeg || state.clockAngleDeg,
+      clockAngleDeg: Number.isFinite(input.clockAngleDeg)
+        ? input.clockAngleDeg
+        : state.clockAngleDeg,
       pendingPush_ft: 0,
       drillStraight: false,
       targetPitchDeg: idealPitchAtSta(state.profile, state.station_ft),
@@ -217,24 +222,31 @@ export function update(
   if (!soil.unlocked || soil.fourPack !== 'dirt') return state
 
   const teach = LIGHT_FILL_TEACH
-  const clockAngleDeg = input.clockAngleDeg || state.clockAngleDeg
+  // 0° is 12 o'clock — never use || (falsy) or clock snaps back to 6
+  const clockAngleDeg = Number.isFinite(input.clockAngleDeg)
+    ? input.clockAngleDeg
+    : state.clockAngleDeg
 
   const rodLen = state.rodLength_ft || ROD_LENGTH_FT
   const onFirstRod = state.station_ft < rodLen - 1e-6
 
   let pendingPush_ft = state.pendingPush_ft
+  // Brief-start first-rod shove (already pending, drillStraight) stays straight
+  const continuingFirstRodShove =
+    onFirstRod && state.drillStraight && state.pendingPush_ft > 0.01
+
   // Steered push available on every rod (incl. rod 1) once in pilot
   if (input.pushStep && pendingPush_ft <= 0.01) {
     pendingPush_ft = pushLen
   }
 
-  // Brief-start first-rod shove stays straight until that pending drains
-  const firstRodAutoShove =
-    onFirstRod &&
-    state.drillStraight &&
-    pendingPush_ft > 0.01 &&
-    !input.pushStep
-  const drillStraight = Boolean(input.drillStraight) || firstRodAutoShove
+  // First-rod auto-shove only — pushStep always wins as steered push
+  const firstRodAutoShove = continuingFirstRodShove && !input.pushStep
+  // Discrete Push (or its remainder) applies clock; Just drill / thrust does not
+  const steeredPushActive = pendingPush_ft > 0.01 && !firstRodAutoShove
+  const drillStraight =
+    firstRodAutoShove ||
+    (Boolean(input.drillStraight) && !steeredPushActive)
 
   // Continuous thrust (slider / W / Just drill hold) OR discrete push remainder
   let thrust = clamp01(Math.max(input.thrust, input.touchSpeed))
@@ -263,37 +275,23 @@ export function update(
     pendingPush_ft = Math.max(0, pendingPush_ft - ds * M_TO_FT)
   }
 
-  const keyboardThrash = Math.max(
-    -1,
-    Math.min(
-      1,
-      (input.keys['a'] || input.keys['A'] ? -1 : 0) +
-        (input.keys['d'] || input.keys['D'] ? 1 : 0) +
-        (input.keys['ArrowLeft'] ? -1 : 0) +
-        (input.keys['ArrowRight'] ? 1 : 0),
-    ),
-  )
-
-  // Just drill / first-rod auto-shove = straight (no clock). Push = clock steer.
-  let steerInput: number
-  let yawInput: number
-  if (drillStraight) {
-    steerInput = firstRodAutoShove ? 0 : keyboardThrash * 0.35
-    yawInput = 0
-  } else {
-    steerInput = Math.max(-1, Math.min(1, input.steer))
+  // Just drill / rotate-and-thrust = straight (no clock). Only Push uses clock.
+  // Derive steer from clockAngleDeg (not stale input.steer). 12 → climb (−).
+  let steerInput = 0
+  let yawInput = 0
+  if (steeredPushActive) {
+    steerInput = clockAngleToSteer(clockAngleDeg)
     yawInput = clockAngleToYaw(clockAngleDeg)
   }
 
+  // Teaching push: readable ° change on 1–2 ft @ 12 (≈1°/ft * clockSteer).
+  // Physical maxSteerDegPerM alone is ~0.2°/ft — invisible on Falcon.
+  const ds_ft = ds * M_TO_FT
   const dPitchWanted =
-    drillStraight && (firstRodAutoShove || onFirstRod)
-      ? 0
-      : ds > 1e-8
-        ? steerInput * soil.steerAuthority * soil.maxSteerDegPerM * ds
-        : 0
-  let dPitch = firstRodAutoShove
-    ? 0
-    : clampSteerDeltaDeg(dPitchWanted, ds, soil)
+    steeredPushActive && ds > 1e-8
+      ? steerInput * teach.pushPitchDegPerFtAtFull12 * ds_ft
+      : 0
+  let dPitch = firstRodAutoShove ? 0 : dPitchWanted
 
   const walkPhase = state.walkPhase + Math.max(dt, 0)
   if (!firstRodAutoShove) {
@@ -376,8 +374,12 @@ export function update(
   let ticketScore = state.ticketScore
 
   const bendRate = ds > 1e-4 ? Math.abs(dPitchWanted) / ds : 0
-  // Mild oversteer → warn only. Never hard-fail TF_PANIC_DOGLEG clear of utilities.
-  const oversteering = !drillStraight && bendRate > teach.panicDoglegDegPerM
+  // Mild oversteer → warn only. Never hard-fail TF_PANIC_DOGLEG.
+  // Teaching Push bend (~1°/ft) is intentional — do not warn on steered push.
+  const oversteering =
+    !drillStraight &&
+    !steeredPushActive &&
+    bendRate > teach.panicDoglegDegPerM
 
   if (oversteering) {
     oversteerTimer += Math.max(dt, 0)
@@ -476,7 +478,7 @@ export function update(
     rodTotal,
     pushLength_ft: pushLen,
     pendingPush_ft,
-    drillStraight: Boolean(input.drillStraight) || firstRodAutoShove,
+    drillStraight,
     panicDoglegCount,
     panicDoglegWarn,
     taughtFail,
