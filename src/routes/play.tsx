@@ -76,12 +76,12 @@ function PlayPage() {
   const [drillActive, setDrillActive] = useState(false)
   const [rodIndex, setRodIndex] = useState(1)
   const [rodTotal, setRodTotal] = useState(12)
-  const [mapView, setMapView] = useState<MapView>('profile')
+  const [mapView, setMapView] = useState<MapView>('ground')
   const [status, setStatus] = useState('')
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const obliqueRef = useRef<HTMLCanvasElement>(null)
   const groundRef = useRef<HTMLCanvasElement>(null)
-  const mapViewRef = useRef<MapView>('profile')
+  const mapViewRef = useRef<MapView>('ground')
 
   useEffect(() => {
     stateRef.current = createGameState(level)
@@ -454,7 +454,7 @@ function PlayPage() {
           className={mapView === 'ground' ? 'map-tab map-tab-on' : 'map-tab'}
           onClick={() => setMapView('ground')}
         >
-          Ground locate
+          Walkover (locates)
         </button>
       </div>
 
@@ -481,7 +481,7 @@ function PlayPage() {
             className="play-canvas ground-canvas"
             width={720}
             height={400}
-            aria-label="Ground locate map — curved road and APWA paint"
+            aria-label="Walkover ground map — locator, APWA depths, head left/right"
           />
         )}
         <TrainerHud

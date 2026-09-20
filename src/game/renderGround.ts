@@ -1,6 +1,7 @@
 /**
- * Ground locate map — curved road ROW + APWA paint on pavement + head.
- * Top-down plan view for crew fantasy: see locates where you must bore.
+ * Walkover / ground locate map — what the crew actually works from.
+ * Top-of-grade plan: paint marks + depths, locator puck, head L/R of CL.
+ * No scenery fantasy — locates and offsets only.
  */
 import type { GameState } from './state'
 import { ROD_LENGTH_FT } from './state'
@@ -19,7 +20,6 @@ export function renderGround(
   const cl = plan.centerline
   const pad = 28
 
-  // Bounds from centerline + locates
   let minX = Infinity
   let maxX = -Infinity
   let minY = Infinity
@@ -36,36 +36,33 @@ export function renderGround(
     minY = Math.min(minY, g.y_ft)
     maxY = Math.max(maxY, g.y_ft)
   }
-  minX -= 12
-  maxX += 12
-  minY -= 14
-  maxY += 14
+  minX -= 14
+  maxX += 14
+  minY -= 16
+  maxY += 16
   const spanX = Math.max(40, maxX - minX)
   const spanY = Math.max(30, maxY - minY)
-  const scale = Math.min((w - pad * 2) / spanX, (h - pad * 2 - 18) / spanY)
+  const scale = Math.min((w - pad * 2) / spanX, (h - pad * 2 - 36) / spanY)
 
   const sx = (x: number) => pad + (x - minX) * scale
-  const sy = (y: number) => h - pad - 14 - (y - minY) * scale
+  const sy = (y: number) => h - pad - 28 - (y - minY) * scale
 
-  ctx.fillStyle = '#1a2228'
+  // Grade (dirt/grass) — flat top-of-ground, not a 3D cutaway
+  ctx.fillStyle = '#2f3d2a'
   ctx.fillRect(0, 0, w, h)
+  ctx.fillStyle = 'rgba(70, 90, 55, 0.35)'
+  for (let i = 0; i < 40; i++) {
+    const gx = ((i * 97) % w)
+    const gy = ((i * 53) % (h - 40))
+    ctx.fillRect(gx, gy, 18, 10)
+  }
 
-  // Road asphalt ribbon along centerline
+  // Planned centerline (bore path on paper)
   ctx.lineCap = 'round'
   ctx.lineJoin = 'round'
-  ctx.strokeStyle = '#2a3038'
-  ctx.lineWidth = Math.max(10, 14 * scale)
-  ctx.beginPath()
-  cl.forEach((s, i) => {
-    if (i === 0) ctx.moveTo(sx(s.x_ft), sy(s.y_ft))
-    else ctx.lineTo(sx(s.x_ft), sy(s.y_ft))
-  })
-  ctx.stroke()
-
-  // Lane stripe
-  ctx.strokeStyle = '#c4b86a'
-  ctx.lineWidth = Math.max(1, 1.5 * scale)
-  ctx.setLineDash([8, 10])
+  ctx.strokeStyle = 'rgba(200, 210, 220, 0.55)'
+  ctx.lineWidth = Math.max(2, 2.5 * scale)
+  ctx.setLineDash([6, 6])
   ctx.beginPath()
   cl.forEach((s, i) => {
     if (i === 0) ctx.moveTo(sx(s.x_ft), sy(s.y_ft))
@@ -74,82 +71,74 @@ export function renderGround(
   ctx.stroke()
   ctx.setLineDash([])
 
-  // ROW edge dashes
-  ctx.strokeStyle = 'rgba(94, 200, 200, 0.35)'
-  ctx.lineWidth = 1
-  ctx.setLineDash([4, 4])
-  for (const side of [-1, 1] as const) {
-    ctx.beginPath()
-    for (let i = 0; i < cl.length; i++) {
-      const s = cl[i]
-      const rad = (s.headingDeg * Math.PI) / 180
-      const nx = Math.sin(rad) * side * 8
-      const ny = -Math.cos(rad) * side * 8
-      const x = sx(s.x_ft + nx)
-      const y = sy(s.y_ft + ny)
-      if (i === 0) ctx.moveTo(x, y)
-      else ctx.lineTo(x, y)
-    }
-    ctx.stroke()
-  }
-  ctx.setLineDash([])
+  // LEFT / RIGHT of CL (facing daylight)
+  const mid = centerlineAt(cl, plan.length_ft * 0.45)
+  const rad = (mid.headingDeg * Math.PI) / 180
+  // right = +lateral = sin heading in world; screen: perpendicular
+  const rx = Math.sin(rad) * 11
+  const ry = -Math.cos(rad) * 11
+  ctx.font = 'bold 13px system-ui, sans-serif'
+  ctx.fillStyle = '#8ecfff'
+  ctx.fillText('LEFT', sx(mid.x_ft - rx) - 18, sy(mid.y_ft - ry))
+  ctx.fillStyle = '#ffb08e'
+  ctx.fillText('RIGHT', sx(mid.x_ft + rx) - 10, sy(mid.y_ft + ry))
 
-  // Rod station ticks along curve
+  // Rod ticks
   const rodLen = state.rodLength_ft || ROD_LENGTH_FT
-  ctx.fillStyle = '#6b7c88'
+  ctx.fillStyle = '#9aa89a'
   ctx.font = '9px ui-monospace, monospace'
   for (let r = 0; r <= state.rodTotal; r++) {
     const sta = Math.min(plan.length_ft, r * rodLen)
     const c = centerlineAt(cl, sta)
     const x = sx(c.x_ft)
     const y = sy(c.y_ft)
-    ctx.strokeStyle = '#4a5864'
+    ctx.strokeStyle = '#6a7a6a'
     ctx.beginPath()
-    ctx.moveTo(x - 4, y)
-    ctx.lineTo(x + 4, y)
+    ctx.moveTo(x - 5, y)
+    ctx.lineTo(x + 5, y)
     ctx.stroke()
-    if (r > 0 && r < state.rodTotal) {
-      ctx.fillText(`R${r}`, x + 5, y - 4)
-    }
+    if (r > 0 && r < state.rodTotal) ctx.fillText(`R${r}`, x + 6, y - 4)
   }
 
-  // Ground locates (paint blobs)
+  // APWA paint + DEPTH (what the crew reads)
   for (const g of plan.groundLocates) {
+    if (g.role === 'parallel_brief_only') continue
     const color = apwaColorHex(g.color)
-    const r = Math.max(4, g.paintRadius_ft * scale)
+    const r = Math.max(6, (g.paintRadius_ft || 3.5) * scale * 0.9)
+    const x = sx(g.x_ft)
+    const y = sy(g.y_ft)
     ctx.fillStyle = color
-    ctx.globalAlpha = g.role === 'parallel_brief_only' ? 0.45 : 0.85
+    ctx.globalAlpha = 0.9
     ctx.beginPath()
-    ctx.arc(sx(g.x_ft), sy(g.y_ft), r, 0, Math.PI * 2)
+    ctx.arc(x, y, r, 0, Math.PI * 2)
     ctx.fill()
     ctx.globalAlpha = 1
-    if (g.role !== 'parallel_brief_only') {
-      ctx.fillStyle = color
-      ctx.font = 'bold 10px system-ui, sans-serif'
-      const offsetMark = /ft [RL]/.test(g.label)
-      ctx.fillText(
-        offsetMark ? `${g.type.toUpperCase()} (offset)` : g.type.toUpperCase(),
-        sx(g.x_ft) + r + 3,
-        sy(g.y_ft) + 3,
-      )
-      if (offsetMark) {
-        // Crosshair so offset paint is obvious vs on-ROW marks
-        ctx.strokeStyle = color
-        ctx.lineWidth = 1.5
-        ctx.beginPath()
-        ctx.moveTo(sx(g.x_ft) - r - 4, sy(g.y_ft))
-        ctx.lineTo(sx(g.x_ft) + r + 4, sy(g.y_ft))
-        ctx.moveTo(sx(g.x_ft), sy(g.y_ft) - r - 4)
-        ctx.lineTo(sx(g.x_ft), sy(g.y_ft) + r + 4)
-        ctx.stroke()
-      }
-    }
+    ctx.strokeStyle = '#0a1008'
+    ctx.lineWidth = 1.5
+    ctx.stroke()
+
+    const depth = Number(g.depth_ft ?? 0)
+    const side =
+      g.label?.includes(' R') || g.label?.includes('+' )
+        ? 'R'
+        : g.label?.includes(' L') || /−|-\d/.test(g.label || '')
+          ? 'L'
+          : 'CL'
+    ctx.fillStyle = '#f2f6f0'
+    ctx.font = 'bold 12px system-ui, sans-serif'
+    ctx.fillText(`${g.type?.toUpperCase?.() || 'UTIL'}`, x + r + 4, y - 6)
+    ctx.fillStyle = color
+    ctx.font = 'bold 14px ui-monospace, monospace'
+    ctx.fillText(`${depth.toFixed(1)} ft deep`, x + r + 4, y + 10)
+    ctx.fillStyle = '#d0d8d0'
+    ctx.font = '11px system-ui, sans-serif'
+    ctx.fillText(side === 'CL' ? 'on CL' : `${side} of path`, x + r + 4, y + 24)
   }
 
-  // Bore path on ground
+  // Drilled path on grade (as-built track)
   if (state.path.length > 1) {
-    ctx.strokeStyle = '#c4a35a'
-    ctx.lineWidth = 2.5
+    ctx.strokeStyle = '#e8c36a'
+    ctx.lineWidth = 3
     ctx.beginPath()
     state.path.forEach((pt, i) => {
       const x = pt.x_ft ?? centerlineAt(cl, pt.sta_ft).x_ft
@@ -160,20 +149,57 @@ export function renderGround(
     ctx.stroke()
   }
 
-  // Head
+  // Head under grade (projected)
   const hx = sx(state.worldX_ft)
   const hy = sy(state.worldY_ft)
+  const lat = state.lateral_ft ?? 0
   ctx.fillStyle = '#e8c36a'
   ctx.beginPath()
-  ctx.arc(hx, hy, 7, 0, Math.PI * 2)
+  ctx.arc(hx, hy, 8, 0, Math.PI * 2)
   ctx.fill()
   ctx.strokeStyle = '#5ec8c8'
   ctx.lineWidth = 2
   ctx.beginPath()
-  ctx.arc(hx, hy, 11, 0, Math.PI * 2)
+  ctx.arc(hx, hy, 12, 0, Math.PI * 2)
   ctx.stroke()
+  ctx.fillStyle = '#fff6d0'
+  ctx.font = 'bold 11px system-ui, sans-serif'
+  const lr =
+    Math.abs(lat) < 0.15
+      ? 'ON CL'
+      : lat > 0
+        ? `${lat.toFixed(1)} ft RIGHT`
+        : `${Math.abs(lat).toFixed(1)} ft LEFT`
+  ctx.fillText(`HEAD · ${lr}`, hx + 14, hy - 10)
 
-  // Entry / daylight labels
+  // Locator puck on grade — ahead of head along CL (walkover progress)
+  const locateSta = Math.min(
+    plan.length_ft,
+    state.station_ft + Math.max(8, rodLen * 0.6),
+  )
+  const loc = centerlineAt(cl, locateSta)
+  const lx = sx(loc.x_ft)
+  const ly = sy(loc.y_ft)
+  // puck body
+  ctx.fillStyle = '#1a2430'
+  ctx.beginPath()
+  ctx.arc(lx, ly, 11, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.strokeStyle = '#5ec8c8'
+  ctx.lineWidth = 2
+  ctx.stroke()
+  ctx.fillStyle = '#5ec8c8'
+  ctx.beginPath()
+  ctx.arc(lx, ly, 4, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.fillStyle = '#b8f0f0'
+  ctx.font = 'bold 11px system-ui, sans-serif'
+  ctx.fillText('LOCATOR', lx - 24, ly - 16)
+  ctx.fillStyle = '#9fb3c3'
+  ctx.font = '10px ui-monospace, monospace'
+  ctx.fillText(`walkover · sta ${locateSta.toFixed(0)}`, lx - 34, ly + 22)
+
+  // Entry / daylight
   const entry = centerlineAt(cl, 2)
   const day = centerlineAt(cl, plan.length_ft * 0.95)
   ctx.fillStyle = '#5ec8c8'
@@ -181,11 +207,11 @@ export function renderGround(
   ctx.fillText('ENTRY', sx(entry.x_ft) - 10, sy(entry.y_ft) - 14)
   ctx.fillText('DAYLIGHT', sx(day.x_ft) - 24, sy(day.y_ft) - 14)
 
-  ctx.fillStyle = '#9fb3c3'
+  ctx.fillStyle = '#c5d4c0'
   ctx.font = '12px ui-monospace, monospace'
   ctx.fillText(
-    `GROUND LOCATE  Rod ${state.rodIndex}/${state.rodTotal}  sta ${state.station_ft.toFixed(0)} ft  curve ROW`,
+    `WALKOVER  Rod ${state.rodIndex}/${state.rodTotal}  sta ${state.station_ft.toFixed(0)} ft  · paint + depths · head L/R of CL`,
     pad,
-    h - 8,
+    h - 10,
   )
 }
