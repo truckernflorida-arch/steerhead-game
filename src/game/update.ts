@@ -92,9 +92,13 @@ export function update(
     return state
   }
 
+  const rodLenCap = state.rodLength_ft || ROD_LENGTH_FT
   const pushLen = Math.max(
     0.5,
-    Math.min(10, input.pushLengthFt ?? state.pushLength_ft ?? DEFAULT_PUSH_FT),
+    Math.min(
+      rodLenCap,
+      input.pushLengthFt ?? state.pushLength_ft ?? DEFAULT_PUSH_FT,
+    ),
   )
 
   const entryPitchDeg = clampEntryPitch(

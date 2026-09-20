@@ -28,7 +28,7 @@ type Props = {
   stationFt?: number
 }
 
-const PUSH_OPTIONS = [1, 2, 3] as const
+const PUSH_OPTIONS = [1, 2, 3, 4, 5] as const
 
 export function RodControls({
   clockAngleDeg,
@@ -44,14 +44,25 @@ export function RodControls({
   onDrillUp,
   drillActive,
   onDrillFirstRod,
-  stationFt: _stationFt = 0,
+  stationFt = 0,
 }: Props) {
   const hour = angleDegToHour(clockAngleDeg)
   const piloting = phase === 'pilot'
   const briefing = phase === 'brief'
   const pushing = pendingPushFt > 0.05
   const onFirstRod = rodIndex <= 1
-  const pushLabel = `Push ${pushLengthFt} ft @ ${hour} o'clock`
+  const intoRod = ((stationFt % ROD_LENGTH_FT) + ROD_LENGTH_FT) % ROD_LENGTH_FT
+  const rodRemainingFt = Math.max(
+    0.5,
+    Math.round((ROD_LENGTH_FT - intoRod) * 10) / 10 || ROD_LENGTH_FT,
+  )
+  const isFullRod = Math.abs(pushLengthFt - rodRemainingFt) < 0.05 || pushLengthFt >= ROD_LENGTH_FT - 0.05
+  const pushLabel = isFullRod
+    ? `Push full rod (${rodRemainingFt} ft) @ ${hour} o'clock`
+    : `Push ${pushLengthFt} ft @ ${hour} o'clock`
+  const drillLabel = isFullRod
+    ? `Drill full rod (${rodRemainingFt} ft)`
+    : `Drill ${pushLengthFt} ft straight`
 
 
   return (
@@ -81,14 +92,14 @@ export function RodControls({
       </div>
 
       {piloting || briefing ? (
-        <div className="rod-push-len" role="group" aria-label="Push length">
-          <span className="rod-push-len-label">Push length</span>
+        <div className="rod-push-len" role="group" aria-label="Step length">
+          <span className="rod-push-len-label">Step length</span>
           {PUSH_OPTIONS.map((ft) => (
             <button
               key={ft}
               type="button"
               className={
-                pushLengthFt === ft ? 'rod-chip rod-chip-on' : 'rod-chip'
+                !isFullRod && pushLengthFt === ft ? 'rod-chip rod-chip-on' : 'rod-chip'
               }
               onClick={() => onPushLengthFt(ft)}
               disabled={false}
@@ -96,6 +107,15 @@ export function RodControls({
               {ft} ft
             </button>
           ))}
+          <button
+            type="button"
+            className={isFullRod ? 'rod-chip rod-chip-on' : 'rod-chip'}
+            onClick={() => onPushLengthFt(rodRemainingFt)}
+            disabled={false}
+            title={`Rest of this rod (~${rodRemainingFt} ft) — pro pace`}
+          >
+            Full rod
+          </button>
         </div>
       ) : null}
 
@@ -156,11 +176,11 @@ export function RodControls({
               onPointerCancel={onDrillUp}
               title={
                 piloting
-                  ? `Drill ${pushLengthFt} ft straight (tap) · hold for continuous`
+                  ? `${drillLabel} (tap) · hold for continuous straight`
                   : 'Start the bore first'
               }
             >
-              {`Drill ${pushLengthFt} ft straight`}
+              {drillLabel}
             </button>
           </>
         )}
