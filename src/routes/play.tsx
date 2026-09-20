@@ -1,6 +1,7 @@
 /**
  * Play route — Lesson 1 = S01 Dirt Yard (light_fill / dirt).
  * Clock + locator + profile bore + brief→push→daylight/TF_PANIC_DOGLEG debrief.
+ * Brief: no blocking overlay; set clock first, then Spud in / Start push.
  */
 import { createFileRoute } from '@tanstack/react-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -30,31 +31,39 @@ import { FlowOverlay } from '#/ui/FlowOverlay'
 
 export const Route = createFileRoute('/play')({ component: PlayPage })
 
+const INITIAL_CLOCK_DEG = 180
+
 function PlayPage() {
   const level = useMemo(() => loadLesson1(), [])
   const soil = useMemo(() => getLesson1Soil(), [])
   const emitter = useRef(createPhysicsEmitter())
-  const touch = useRef(createTouchSpeedControl(0.35))
-  const clock = useRef(createClockControl(180))
+  const touch = useRef(createTouchSpeedControl(0))
+  const clock = useRef(createClockControl(INITIAL_CLOCK_DEG))
   const keysRef = useRef<Record<string, boolean>>({})
   const prevKeysRef = useRef<Record<string, boolean>>({})
   const startPushRef = useRef(false)
   const retryRef = useRef(false)
+  const clockConfirmedRef = useRef(false)
   const stateRef = useRef<GameState>(createGameState(level))
   const [snap, setSnap] = useState<TickSnap>(() =>
     emitFromGameState(emitter.current, stateRef.current),
   )
   const [detailOpen, setDetailOpen] = useState(false)
-  const [touchSpeed, setTouchSpeed] = useState(0.35)
-  const [clockAngle, setClockAngle] = useState(180)
+  const [touchSpeed, setTouchSpeed] = useState(0)
+  const [clockAngle, setClockAngle] = useState(INITIAL_CLOCK_DEG)
+  const [clockConfirmed, setClockConfirmed] = useState(false)
   const [status, setStatus] = useState('')
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
   useEffect(() => {
     stateRef.current = createGameState(level)
     emitter.current = createPhysicsEmitter()
-    clock.current.setAngleDeg(180)
-    setClockAngle(180)
+    clock.current.setAngleDeg(INITIAL_CLOCK_DEG)
+    setClockAngle(INITIAL_CLOCK_DEG)
+    clockConfirmedRef.current = false
+    setClockConfirmed(false)
+    touch.current.setSpeed(0)
+    setTouchSpeed(0)
   }, [level])
 
   useEffect(() => {
@@ -83,7 +92,10 @@ function PlayPage() {
       const prev = prevKeysRef.current
       const edge = (k: string) => keys[k] && !prev[k]
 
-      // Hour snaps + Q/E nudge (edge)
+      const phase = stateRef.current.phase
+      const clockBefore = clock.current.angleDeg
+
+      // Hour snaps + Q/E nudge (edge) — allowed in brief so player can set clock
       if (edge('q') || edge('Q')) clock.current.nudge(-15)
       if (edge('e') || edge('E')) clock.current.nudge(15)
       for (let h = 1; h <= 9; h++) {
@@ -93,18 +105,42 @@ function PlayPage() {
       if (edge('-') || edge('_')) clock.current.setHour(11)
       if (edge('=') || edge('+')) clock.current.setHour(12)
 
+      if (
+        phase === 'brief' &&
+        !clockConfirmedRef.current &&
+        clock.current.angleDeg !== clockBefore
+      ) {
+        clockConfirmedRef.current = true
+        setClockConfirmed(true)
+      }
+
       let input = createEmptyInput()
-      input = sampleKeyboard(input, keys)
-      const kbSteer = input.steer
-      input = sampleClock(input, clock.current.angleDeg, kbSteer)
-      const touchSample = sampleTouchSpeed(touch.current)
-      input = {
-        ...input,
-        touchSpeed: touchSample.touchSpeed,
-        thrust: Math.max(input.thrust, touchSample.thrust),
-        keys: { ...keys },
-        startPush: startPushRef.current,
-        retry: retryRef.current,
+      // During brief: do not sample W thrust / steer into motion — clock only.
+      // update() already freezes station/depth in brief; strip thrust so W cannot
+      // look like a start and touch pre-set stays inert until Spud in.
+      if (phase === 'brief') {
+        input = sampleClock(input, clock.current.angleDeg, 0)
+        input = {
+          ...input,
+          thrust: 0,
+          touchSpeed: 0,
+          keys: { ...keys },
+          startPush: startPushRef.current,
+          retry: retryRef.current,
+        }
+      } else {
+        input = sampleKeyboard(input, keys)
+        const kbSteer = input.steer
+        input = sampleClock(input, clock.current.angleDeg, kbSteer)
+        const touchSample = sampleTouchSpeed(touch.current)
+        input = {
+          ...input,
+          touchSpeed: touchSample.touchSpeed,
+          thrust: Math.max(input.thrust, touchSample.thrust),
+          keys: { ...keys },
+          startPush: startPushRef.current,
+          retry: retryRef.current,
+        }
       }
       startPushRef.current = false
       retryRef.current = false
@@ -137,9 +173,14 @@ function PlayPage() {
     const a = normalizeAngleDeg(deg)
     clock.current.setAngleDeg(a)
     setClockAngle(a)
+    if (!clockConfirmedRef.current) {
+      clockConfirmedRef.current = true
+      setClockConfirmed(true)
+    }
   }
 
   function onStartPush() {
+    if (stateRef.current.phase !== 'brief') return
     startPushRef.current = true
   }
 
@@ -147,11 +188,16 @@ function PlayPage() {
     retryRef.current = true
     stateRef.current = resetGameState(stateRef.current)
     emitter.current = createPhysicsEmitter()
-    clock.current.setAngleDeg(180)
-    setClockAngle(180)
+    clock.current.setAngleDeg(INITIAL_CLOCK_DEG)
+    setClockAngle(INITIAL_CLOCK_DEG)
+    clockConfirmedRef.current = false
+    setClockConfirmed(false)
+    touch.current.setSpeed(0)
+    setTouchSpeed(0)
   }
 
   const pushing = snap.phase === 'pilot'
+  const inBrief = snap.phase === 'brief'
 
   return (
     <main className="play-shell">
@@ -173,12 +219,33 @@ function PlayPage() {
 
       <div className="play-top">
         <LocatorPanel snap={snap} />
-        <ClockFace
-          angleDeg={clockAngle}
-          onAngleDeg={onClockAngle}
-          disabled={snap.phase === 'debrief'}
-        />
+        <div className="clock-stack">
+          <ClockFace
+            angleDeg={clockAngle}
+            onAngleDeg={onClockAngle}
+            disabled={snap.phase === 'debrief'}
+          />
+          {inBrief ? (
+            <div className="spud-row">
+              <p className="spud-hint">
+                {clockConfirmed
+                  ? 'Clock set — ready to spud in.'
+                  : 'Set clock face first (drag or 1–12), then start push.'}
+              </p>
+              <button
+                type="button"
+                className="flow-primary spud-btn"
+                onClick={onStartPush}
+                disabled={!clockConfirmed}
+              >
+                Spud in / Start push
+              </button>
+            </div>
+          ) : null}
+        </div>
       </div>
+
+      <FlowOverlay snap={snap} level={level} onRetry={onRetry} />
 
       <div className="play-layout">
         <canvas
@@ -208,21 +275,20 @@ function PlayPage() {
           max={1}
           step={0.01}
           value={touchSpeed}
-          disabled={!pushing && snap.phase !== 'brief'}
+          disabled={!pushing}
           onChange={(e) => {
             const v = Number(e.target.value)
             touch.current.setSpeed(v)
             setTouchSpeed(v)
           }}
         />
+        {inBrief ? (
+          <p className="touch-speed-note">
+            Thrust stays at 0 until you Spud in — slider unlocks after start.
+          </p>
+        ) : null}
       </div>
 
-      <FlowOverlay
-        snap={snap}
-        level={level}
-        onStartPush={onStartPush}
-        onRetry={onRetry}
-      />
     </main>
   )
 }

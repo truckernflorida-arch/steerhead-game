@@ -1,6 +1,6 @@
 /**
- * Brief / debrief overlays — copy from TickSnap + level card.
- * Never invents TF_* / RV_* labels; prints snap.debrief / snap.causes labels.
+ * Brief = non-blocking plan card (does not cover clock/locator).
+ * Debrief = full-screen overlay (unchanged).
  */
 import type { TickSnap } from '#/game/ticksnap'
 import type { JobCard } from '#/game/levels'
@@ -8,43 +8,41 @@ import type { JobCard } from '#/game/levels'
 type Props = {
   snap: TickSnap
   level: JobCard
-  onStartPush: () => void
   onRetry: () => void
 }
 
-export function FlowOverlay({ snap, level, onStartPush, onRetry }: Props) {
+export function FlowOverlay({ snap, level, onRetry }: Props) {
   if (snap.phase === 'brief') {
     return (
-      <div className="flow-overlay" role="dialog" aria-label="Job brief">
-        <div className="flow-card">
-          <h2>{level.bibleTitle}</h2>
-          <p className="flow-lesson">
-            Lesson 1 · Read the ground · Set clock · Push to daylight
-          </p>
-          <ul className="flow-list">
-            <li>
-              Soil: <strong>Dirt / light_fill</strong> (mud locked green)
-            </li>
-            <li>
-              Shot: {level.bore?.length_ft ?? 120} ft · target depth{' '}
-              {level.bore?.targetDepth_ft ?? 6} ft
-            </li>
-            <li>APWA: yellow gas clearance · blue water (brief)</li>
-            <li>
-              Pass: exit window · gradeHold ≥70% · ≤1 panic dogleg warn
-            </li>
-            <li>Fail teaches steer death — not the dirt</li>
-          </ul>
-          <ol className="flow-steps">
-            <li>Rotate first rod — set clock face (drag or 1–12)</li>
-            <li>Match locator depth/pitch to plan</li>
-            <li>Thrust (W / slider) · hold grade · climb to daylight</li>
-          </ol>
-          <button type="button" className="flow-primary" onClick={onStartPush}>
-            Start push
-          </button>
-        </div>
-      </div>
+      <aside className="flow-plan" aria-label="Job plan">
+        <h2>{level.bibleTitle}</h2>
+        <p className="flow-lesson">
+          Lesson 1 · Read the ground · Set clock · Then push
+        </p>
+        <p className="flow-callout">
+          Set the clock face before your first rod / push. Clock and locator stay
+          live — nothing advances until you Spud in.
+        </p>
+        <ul className="flow-list">
+          <li>
+            Soil: <strong>Dirt / light_fill</strong> (mud locked green)
+          </li>
+          <li>
+            Shot: {level.bore?.length_ft ?? 120} ft · target depth{' '}
+            {level.bore?.targetDepth_ft ?? 6} ft
+          </li>
+          <li>APWA: yellow gas clearance · blue water (brief)</li>
+          <li>
+            Pass: exit window · gradeHold ≥70% · ≤1 panic dogleg warn
+          </li>
+          <li>Fail teaches steer death — not the dirt</li>
+        </ul>
+        <ol className="flow-steps">
+          <li>Rotate first rod — set clock face (drag or 1–12)</li>
+          <li>Match locator depth/pitch to plan</li>
+          <li>Spud in / Start push — then thrust (W / slider)</li>
+        </ol>
+      </aside>
     )
   }
 

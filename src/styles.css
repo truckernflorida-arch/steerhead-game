@@ -507,6 +507,74 @@ code {
   filter: brightness(1.08);
 }
 
+
+/* --- Brief plan card (non-blocking) + spud control --- */
+.flow-plan {
+  background: #161b20;
+  border: 1px solid #3d4a54;
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+  margin-bottom: 1rem;
+  max-width: 100%;
+}
+
+.flow-plan h2 {
+  margin: 0 0 0.35rem;
+  font-size: 1.1rem;
+  color: #5ec8c8;
+}
+
+.flow-callout {
+  margin: 0 0 0.75rem;
+  padding: 0.55rem 0.75rem;
+  background: #1a2830;
+  border-left: 3px solid #5ec8c8;
+  border-radius: 0 6px 6px 0;
+  color: #c5d4de;
+  font-size: 0.88rem;
+}
+
+.clock-stack {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.spud-row {
+  background: #12181f;
+  border: 1px solid #2c3640;
+  border-radius: 8px;
+  padding: 0.65rem 0.85rem;
+  text-align: center;
+  max-width: 220px;
+  margin: 0 auto;
+}
+
+.spud-hint {
+  margin: 0 0 0.5rem;
+  font-size: 0.72rem;
+  color: #8a9aa6;
+  line-height: 1.35;
+}
+
+.spud-btn {
+  width: 100%;
+}
+
+.flow-primary:disabled,
+.spud-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  filter: none;
+}
+
+.touch-speed-note {
+  margin: 0.35rem 0 0;
+  font-size: 0.75rem;
+  color: #6b7c88;
+}
+
 @media (max-width: 720px) {
   .locator-readouts {
     grid-template-columns: repeat(2, minmax(0, 1fr));
