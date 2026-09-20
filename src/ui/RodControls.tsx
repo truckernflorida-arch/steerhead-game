@@ -28,7 +28,8 @@ type Props = {
   stationFt?: number
 }
 
-const PUSH_OPTIONS = [1, 2, 3, 4, 5] as const
+/** Steps within a 10 ft rod */
+const PUSH_OPTIONS = [1, 2, 5, 10] as const
 
 export function RodControls({
   clockAngleDeg,
@@ -76,8 +77,10 @@ export function RodControls({
         </span>
         {pushing ? (
           <span className="rod-marker-pending">
-            {onFirstRod && drillActive
-              ? `drilling first rod… ${pendingPushFt.toFixed(1)} ft left`
+            {drillActive
+              ? onFirstRod
+                ? `drilling first rod… ${pendingPushFt.toFixed(1)} ft left`
+                : `drilling… ${pendingPushFt.toFixed(1)} ft left`
               : `pushing… ${pendingPushFt.toFixed(1)} ft left`}
           </span>
         ) : null}
@@ -92,8 +95,8 @@ export function RodControls({
       </div>
 
       {piloting || briefing ? (
-        <div className="rod-push-len" role="group" aria-label="Step length">
-          <span className="rod-push-len-label">Step length</span>
+        <div className="rod-push-len" role="group" aria-label="Rod step (10 ft rod)">
+          <span className="rod-push-len-label">Rod step (10 ft rod)</span>
           {PUSH_OPTIONS.map((ft) => (
             <button
               key={ft}
@@ -112,7 +115,7 @@ export function RodControls({
             className={isFullRod ? 'rod-chip rod-chip-on' : 'rod-chip'}
             onClick={() => onPushLengthFt(rodRemainingFt)}
             disabled={false}
-            title={`Rest of this rod (~${rodRemainingFt} ft) — pro pace`}
+            title={`Finish this 10 ft rod (~${rodRemainingFt} ft left)`}
           >
             Full rod
           </button>
@@ -153,30 +156,10 @@ export function RodControls({
                   : 'rod-btn rod-btn-drill'
               }
               disabled={!piloting || pushing}
-              onClick={(e) => {
-                e.preventDefault()
-                onDrillStep()
-              }}
-              onPointerDown={(e) => {
-                if (e.button !== 0) return
-                // Mark hold; suppress synthetic click double-queue via data flag
-                ;(e.currentTarget as HTMLButtonElement).dataset.holding = '1'
-                e.currentTarget.setPointerCapture?.(e.pointerId)
-                onDrillDown()
-              }}
-              onPointerUp={(e) => {
-                const el = e.currentTarget as HTMLButtonElement
-                const held = el.dataset.holding === '1'
-                delete el.dataset.holding
-                onDrillUp()
-                // If it was a quick tap, pointerup+click both fire — click handles discrete
-                // If held >~180ms continuous already ran; click still ok (pending guard)
-                void held
-              }}
-              onPointerCancel={onDrillUp}
+              onClick={() => onDrillStep()}
               title={
                 piloting
-                  ? `${drillLabel} (tap) · hold for continuous straight`
+                  ? `${drillLabel} — one step, then stops (10 ft rod)`
                   : 'Start the bore first'
               }
             >

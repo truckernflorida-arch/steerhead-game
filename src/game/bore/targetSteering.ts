@@ -5,14 +5,15 @@
  */
 import { idealDepthAtSta, type ApwaMark, type ProfilePlan } from './profile'
 
-/** Ideal pitch (° , + dive) from depth plan slope at station. */
+/** Ideal pitch (°). HDD sign: − dive / + climb. Depth plan is +down. */
 export function idealPitchAtSta(plan: ProfilePlan, sta_ft: number): number {
   const eps = 0.75
   const d0 = idealDepthAtSta(plan, Math.max(0, sta_ft - eps * 0.5))
   const d1 = idealDepthAtSta(plan, Math.min(plan.length_ft, sta_ft + eps * 0.5))
   const run = Math.min(plan.length_ft, sta_ft + eps * 0.5) - Math.max(0, sta_ft - eps * 0.5)
   if (run < 1e-6) return 0
-  return (Math.atan2(d1 - d0, run) * 180) / Math.PI
+  // Negate: going deeper (d1>d0) is dive → negative pitch
+  return (-Math.atan2(d1 - d0, run) * 180) / Math.PI
 }
 
 export type SteerCue = {
@@ -92,8 +93,9 @@ export function buildSteerCue(
   const err = actualPitchDeg - targetPitchDeg
   const half = Math.max(0.4, gradeWindow_deg)
   let pitchBand: SteerCue['pitchBand'] = 'in'
-  if (err > half) pitchBand = 'high' // too much dive
-  else if (err < -half) pitchBand = 'low' // too flat / climbing vs target
+  // HDD: − dive / + climb. More negative than target = too much dive.
+  if (err < -half) pitchBand = 'high' // too much dive
+  else if (err > half) pitchBand = 'low' // too flat / climbing vs target
 
   let lateralCue: SteerCue['lateralCue'] = 'hold'
   if (hazard?.cue === 'left') lateralCue = 'left'

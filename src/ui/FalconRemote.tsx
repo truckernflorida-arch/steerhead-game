@@ -8,8 +8,9 @@ import { angleDegToHour } from '#/game/input/clock'
 type Props = { snap: TickSnap }
 
 function pitchSense(pitchDeg: number): { arrow: string; label: string } {
-  if (pitchDeg > 0.15) return { arrow: '↓', label: 'DIVE' }
-  if (pitchDeg < -0.15) return { arrow: '↑', label: 'CLIMB' }
+  // HDD: + climb / − dive
+  if (pitchDeg > 0.15) return { arrow: '↑', label: 'CLIMB' }
+  if (pitchDeg < -0.15) return { arrow: '↓', label: 'DIVE' }
   return { arrow: '→', label: 'LEVEL' }
 }
 

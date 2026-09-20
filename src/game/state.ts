@@ -30,10 +30,10 @@ export type GameOutcome =
 export const ROD_LENGTH_FT = 10
 /** Default discrete push step (ft) */
 export const DEFAULT_PUSH_FT = 2
-/** Default rig / bit entry pitch before Spud (° dive) */
-export const DEFAULT_ENTRY_PITCH_DEG = 14
-export const ENTRY_PITCH_MIN = 4
-export const ENTRY_PITCH_MAX = 22
+/** Default rig / bit entry pitch before Spud (°). HDD sign: − dive / + climb */
+export const DEFAULT_ENTRY_PITCH_DEG = -14
+export const ENTRY_PITCH_MIN = -22
+export const ENTRY_PITCH_MAX = -4
 
 export type GameState = {
   levelId: string
@@ -53,9 +53,9 @@ export type GameState = {
   worldX_ft: number
   /** Plan-view world Y along curved ROW (ft) */
   worldY_ft: number
-  /** Pitch degrees (+ dive) */
+  /** Pitch degrees (HDD: − dive / + climb) */
   pitchDeg: number
-  /** Rig setup entry pitch (° dive) — seeds pitchDeg on Spud */
+  /** Rig setup entry pitch (HDD: − dive / + climb) — seeds pitchDeg on Spud */
   entryPitchDeg: number
   /** Ideal / target pitch from depth plan at current station */
   targetPitchDeg: number

@@ -4,7 +4,7 @@
  * Rig entry pitch set in brief before Spud.
  */
 export type InputFrame = {
-  /** Steer / pitch -1..1 (dive +) */
+  /** Steer / pitch -1..1 (HDD: climb +, dive −) */
   steer: number
   /** Thrust / push 0..1 */
   thrust: number
@@ -23,7 +23,7 @@ export type InputFrame = {
   drillStraight?: boolean
   /** Rod push step length (ft); default 2 */
   pushLengthFt?: number
-  /** Rig / bit entry pitch (° dive) — brief setup, seeds Spud pitch */
+  /** Rig / bit entry pitch (°; HDD − dive / + climb) — brief setup */
   entryPitchDeg?: number
 }
 

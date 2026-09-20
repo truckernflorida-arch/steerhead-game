@@ -235,28 +235,20 @@ export function update(
   const onFirstRod = state.station_ft < rodLen - 1e-6
 
   let pendingPush_ft = state.pendingPush_ft
-  let drillStraight = state.drillStraight
+  let drillStraight = false
 
   // Discrete Push @ clock (clears straight mode)
   if (input.pushStep && pendingPush_ft <= 0.01) {
     pendingPush_ft = pushLen
     drillStraight = false
-  }
-  // Discrete Just drill — same length as Push, no clock (tap-friendly)
-  if (input.drillStep && pendingPush_ft <= 0.01) {
+  } else if (input.drillStep && pendingPush_ft <= 0.01) {
+    // One tap = one step (up to pushLen / rest of 10 ft rod), then stops
     pendingPush_ft = pushLen
     drillStraight = true
-  }
-  // Hold: continuous straight drill
-  if (input.drillStraight) {
+  } else if (pendingPush_ft > 0.01 && state.drillStraight && !input.pushStep) {
+    // Finish the in-flight straight step, then clear
     drillStraight = true
-  }
-  // Discrete straight shove in flight stays straight until empty (unless Push takes over)
-  if (pendingPush_ft > 0.01 && state.drillStraight && !input.pushStep) {
-    drillStraight = true
-  }
-  // Clear straight when idle and not holding
-  if (pendingPush_ft <= 0.01 && !input.drillStraight) {
+  } else if (pendingPush_ft > 0.01 && !state.drillStraight) {
     drillStraight = false
   }
   // First-rod brief auto-shove (already pending + straight) stays straight
@@ -293,7 +285,7 @@ export function update(
   }
 
   // Just drill / rotate-and-thrust = straight (no clock). Only Push uses clock.
-  // Derive steer from clockAngleDeg (not stale input.steer). 12 → climb (−).
+  // Derive steer from clockAngleDeg (not stale input.steer). 12 → climb (+).
   let steerInput = 0
   let yawInput = 0
   if (steeredPushActive) {
@@ -322,7 +314,8 @@ export function update(
   const pitchRad = (pitchDeg * Math.PI) / 180
 
   const dSta_ft = ds * Math.cos(pitchRad) * M_TO_FT
-  const dCover_ft = ds * Math.sin(pitchRad) * M_TO_FT
+  // HDD pitch: − dive / + climb. Cover depth is +down, so dive (neg) increases cover.
+  const dCover_ft = -ds * Math.sin(pitchRad) * M_TO_FT
   const dLat = firstRodAutoShove
     ? 0
     : ds *

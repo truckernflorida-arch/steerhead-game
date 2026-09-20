@@ -18,10 +18,10 @@ export function angleDegToHour(angleDeg: number): number {
   return hour === 0 ? 12 : hour
 }
 
-/** -cos: 12→climb(-1), 3→0, 6→dive(+1), 9→0 */
+/** +cos: 12→climb(+1), 3→0, 6→dive(-1), 9→0  (HDD: + climb / − dive) */
 export function clockAngleToSteer(angleDeg: number): number {
   const rad = (angleDeg * Math.PI) / 180
-  return -Math.cos(rad)
+  return Math.cos(rad)
 }
 
 /** sin: 3→right(+1), 9→left(-1), 12/6→0 */
