@@ -1,6 +1,7 @@
 /**
  * Curved road ROW centerline + ground APWA locates (plan view).
  * Station is arc-length along the curve (ft).
+ * Parallel locates use offset_ft from tickets (Bot 5: water −8 LEFT).
  */
 import type { ApwaMark, ProfilePlan } from './profile'
 
@@ -25,6 +26,10 @@ export type GroundLocate = {
   paintRadius_ft: number
   role?: string
   label: string
+  /** Ticket display name e.g. GAS / WATER */
+  ticketLabel?: string
+  offset_ft?: number
+  crossesCL?: boolean
 }
 
 /** Soft S-curve road ROW — not a straight side-profile only. */
@@ -117,53 +122,79 @@ export function worldFromStation(
   }
 }
 
-/** Paint APWA marks onto ground along / beside the curved ROW. */
+function ticketDisplayName(m: ApwaMark): string {
+  if (m.label) return m.label.toUpperCase()
+  return m.type.toUpperCase()
+}
+
+/** Paint APWA marks onto ground along / beside the curved ROW from tickets. */
 export function groundLocatesFromPlan(
   plan: ProfilePlan,
   samples: CenterlineSample[],
 ): GroundLocate[] {
   const out: GroundLocate[] = []
   for (const m of plan.apwa) {
-    if (m.role === 'parallel_brief_only') {
-      // Parallel utility — paint along road shoulder (right)
-      const steps = 10
+    const name = ticketDisplayName(m)
+    const depth = m.depth_ft
+
+    if (m.role === 'parallel_brief_only' || m.crossesCL === false) {
+      // Parallel utility — paint at ticket offset (Bot 5 water: −8 LEFT)
+      // Single primary ticket blob at sta_ft (or mid-bore) + light shoulder trail
+      const offset = m.offset_ft ?? -8
+      const primarySta = m.sta_ft ?? plan.length_ft * 0.5
+      const sideLabel =
+        Math.abs(offset) < 0.15
+          ? 'on CL'
+          : offset > 0
+            ? `${offset.toFixed(0)} ft RIGHT`
+            : `${Math.abs(offset).toFixed(0)} ft LEFT`
+
+      const steps = 8
       for (let i = 0; i <= steps; i++) {
         const u = 0.15 + (0.75 * i) / steps
         const sta = plan.length_ft * u
-        const w = worldFromStation(samples, sta, 8)
+        const w = worldFromStation(samples, sta, offset)
+        const isPrimary = Math.abs(sta - primarySta) < plan.length_ft / steps
         out.push({
           color: m.color,
           type: m.type,
-          depth_ft: m.depth_ft,
+          depth_ft: depth,
           sta_ft: sta,
           x_ft: w.x_ft,
           y_ft: w.y_ft,
-          paintRadius_ft: 2.2,
-          role: m.role,
-          label: `${m.type.toUpperCase()} · parallel`,
+          paintRadius_ft: isPrimary ? 3.8 : 2.0,
+          role: 'parallel_brief_only',
+          label: `${name} · ${depth.toFixed(1)} ft · ${sideLabel}`,
+          ticketLabel: name,
+          offset_ft: offset,
+          crossesCL: false,
         })
       }
       continue
     }
+
     const sta = m.sta_ft ?? plan.length_ft * 0.35
     const offset = m.offset_ft ?? 0
     const w = worldFromStation(samples, sta, offset)
     const sideLabel =
       Math.abs(offset) < 0.15
-        ? 'on ROW'
+        ? 'on CL'
         : offset > 0
           ? `+${offset.toFixed(1)} ft R`
           : `${offset.toFixed(1)} ft L`
     out.push({
       color: m.color,
       type: m.type,
-      depth_ft: m.depth_ft,
+      depth_ft: depth,
       sta_ft: sta,
       x_ft: w.x_ft,
       y_ft: w.y_ft,
       paintRadius_ft: Math.abs(offset) > 0.5 ? 4.2 : 3.5,
       role: m.role,
-      label: `${m.type.toUpperCase()} · ${m.depth_ft.toFixed(1)} ft · ${sideLabel}`,
+      label: `${name} · ${depth.toFixed(1)} ft · ${sideLabel}`,
+      ticketLabel: name,
+      offset_ft: offset,
+      crossesCL: m.crossesCL ?? true,
     })
   }
   return out

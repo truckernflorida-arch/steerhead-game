@@ -1,8 +1,9 @@
 /**
  * Utility strike check — live contact vs APWA marks on the profile.
- * Crossing utilities (gas/telecom with sta_ft): hit if head is too close in
- * station + depth + lateral (offset locates teach clock 3/9 L/R clear).
- * Parallel (water) hits if lateral drifts into the paint.
+ * Crossing utilities (gas with sta_ft / crossesCL): hit if head is too close in
+ * station + depth + lateral.
+ * Parallel (water, crossesCL false): hits only if lateral drifts into the paint
+ * at the ticket offset (Bot 5: −8 LEFT).
  * Clearance: OD/2 + ~18 in ≈ 1.5–2 ft hard envelope; "wide" softens slightly.
  */
 import type { ApwaMark } from '../bore/profile'
@@ -25,7 +26,6 @@ export type UtilityContact = {
 const STA_HIT_FT = 4.0
 const DEPTH_HIT_FT = 1.35
 const LAT_HIT_FT = 2.25
-const LAT_PARALLEL_FT = 8
 /** Soft warn when inside this multiple of the hard envelope */
 const CLOSE_WARN_SCALE = 1.55
 
@@ -52,9 +52,10 @@ export function checkUtilityStrike(opts: {
     const staHit = STA_HIT_FT * scale
     const latHit = LAT_HIT_FT * scale
 
-    if (m.role === 'parallel_brief_only') {
-      // Parallel utility along road shoulder (~+8 ft lateral)
-      const dLat = Math.abs(opts.lateral_ft - LAT_PARALLEL_FT)
+    if (m.role === 'parallel_brief_only' || m.crossesCL === false) {
+      // Parallel utility at ticket offset (Bot 5 water: offsetFromCL_ft −8)
+      const markLat = m.offset_ft ?? -8
+      const dLat = Math.abs(opts.lateral_ft - markLat)
       const dDepth = Math.abs(opts.coverDepth_ft - m.depth_ft)
       const dist = Math.hypot(dLat, dDepth)
       nearestFt = Math.min(nearestFt, dist)
@@ -78,7 +79,7 @@ export function checkUtilityStrike(opts: {
           utilityType: m.type,
           color: String(m.color),
           nearestFt: dist,
-          clearCue: opts.lateral_ft > LAT_PARALLEL_FT ? 'left' : 'right',
+          clearCue: opts.lateral_ft > markLat ? 'left' : 'right',
         }
       }
       continue
@@ -110,7 +111,6 @@ export function checkUtilityStrike(opts: {
       dDepth < depthHit * CLOSE_WARN_SCALE &&
       dLat < latHit * CLOSE_WARN_SCALE
     ) {
-      // To clear: move away from mark lateral (opposite side of the offset blob)
       const clearCue: 'left' | 'right' =
         opts.lateral_ft > markLat ? 'left' : 'right'
       closing = {

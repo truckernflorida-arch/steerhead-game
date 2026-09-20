@@ -432,6 +432,15 @@ function PlayPage() {
         <button
           type="button"
           role="tab"
+          aria-selected={mapView === 'ground'}
+          className={mapView === 'ground' ? 'map-tab map-tab-on' : 'map-tab'}
+          onClick={() => setMapView('ground')}
+        >
+          Walkover (locates)
+        </button>
+        <button
+          type="button"
+          role="tab"
           aria-selected={mapView === 'profile'}
           className={mapView === 'profile' ? 'map-tab map-tab-on' : 'map-tab'}
           onClick={() => setMapView('profile')}
@@ -446,15 +455,6 @@ function PlayPage() {
           onClick={() => setMapView('oblique')}
         >
           Oblique 3D
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={mapView === 'ground'}
-          className={mapView === 'ground' ? 'map-tab map-tab-on' : 'map-tab'}
-          onClick={() => setMapView('ground')}
-        >
-          Walkover (locates)
         </button>
       </div>
 

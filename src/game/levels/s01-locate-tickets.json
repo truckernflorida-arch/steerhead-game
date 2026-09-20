@@ -1,0 +1,47 @@
+{
+  "levelId": "S01",
+  "rev": 3,
+  "viewPrimary": "walkover_plan",
+  "centerline": {
+    "length_ft": 120,
+    "entry": {
+      "sta_ft": 0,
+      "x": 0,
+      "y": 0
+    },
+    "exit": {
+      "sta_ft": 120,
+      "x": 120,
+      "y": 0
+    },
+    "designDepth_ft": 6
+  },
+  "locateTickets": [
+    {
+      "id": "gas_y40",
+      "apwa": "yellow",
+      "type": "gas",
+      "label": "GAS",
+      "owner": "UTIL-G",
+      "depth_ft": 3.5,
+      "sta_ft": 40,
+      "offsetFromCL_ft": 0,
+      "crossesCL": true,
+      "ticketText": "YELLOW \u00b7 GAS \u00b7 3.5 ft \u00b7 sta 40 \u00b7 crosses path",
+      "clearanceNote": "wide \u2014 design \u22653 ft under / \u226518 in envelope"
+    },
+    {
+      "id": "water_b_parallel",
+      "apwa": "blue",
+      "type": "water",
+      "label": "WATER",
+      "owner": "UTIL-W",
+      "depth_ft": 3.0,
+      "sta_ft": 60,
+      "offsetFromCL_ft": -8,
+      "crossesCL": false,
+      "ticketText": "BLUE \u00b7 WATER \u00b7 3.0 ft \u00b7 parallel LEFT of CL ~8 ft",
+      "clearanceNote": "no cross \u2014 brief quiz / paint only"
+    }
+  ]
+}

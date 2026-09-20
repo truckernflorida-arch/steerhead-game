@@ -1,7 +1,7 @@
 /**
  * Walkover / ground locate map — what the crew actually works from.
- * Top-of-grade plan: paint marks + depths, locator puck, head L/R of CL.
- * No scenery fantasy — locates and offsets only.
+ * Top-of-grade plan: paint marks + depth tickets from Bot 5 locate data.
+ * Labels: GAS 3.5 ft / WATER 3.0 ft. No scenery fantasy — locates and offsets only.
  */
 import type { GameState } from './state'
 import { ROD_LENGTH_FT } from './state'
@@ -52,8 +52,8 @@ export function renderGround(
   ctx.fillRect(0, 0, w, h)
   ctx.fillStyle = 'rgba(70, 90, 55, 0.35)'
   for (let i = 0; i < 40; i++) {
-    const gx = ((i * 97) % w)
-    const gy = ((i * 53) % (h - 40))
+    const gx = (i * 97) % w
+    const gy = (i * 53) % (h - 40)
     ctx.fillRect(gx, gy, 18, 10)
   }
 
@@ -74,7 +74,6 @@ export function renderGround(
   // LEFT / RIGHT of CL (facing daylight)
   const mid = centerlineAt(cl, plan.length_ft * 0.45)
   const rad = (mid.headingDeg * Math.PI) / 180
-  // right = +lateral = sin heading in world; screen: perpendicular
   const rx = Math.sin(rad) * 11
   const ry = -Math.cos(rad) * 11
   ctx.font = 'bold 13px system-ui, sans-serif'
@@ -100,39 +99,55 @@ export function renderGround(
     if (r > 0 && r < state.rodTotal) ctx.fillText(`R${r}`, x + 6, y - 4)
   }
 
-  // APWA paint + DEPTH (what the crew reads)
+  // APWA paint + DEPTH TICKETS (Bot 5: GAS 3.5 ft / WATER 3.0 ft)
+  const labeled = new Set<string>()
   for (const g of plan.groundLocates) {
-    if (g.role === 'parallel_brief_only') continue
     const color = apwaColorHex(g.color)
-    const r = Math.max(6, (g.paintRadius_ft || 3.5) * scale * 0.9)
+    const isParallel = g.role === 'parallel_brief_only' || g.crossesCL === false
+    const isPrimary =
+      !isParallel || (g.paintRadius_ft != null && g.paintRadius_ft >= 3.5)
+    const r = Math.max(
+      isPrimary ? 6 : 3.5,
+      (g.paintRadius_ft || 3.5) * scale * (isPrimary ? 0.9 : 0.55),
+    )
     const x = sx(g.x_ft)
     const y = sy(g.y_ft)
     ctx.fillStyle = color
-    ctx.globalAlpha = 0.9
+    ctx.globalAlpha = isPrimary ? 0.92 : 0.55
     ctx.beginPath()
     ctx.arc(x, y, r, 0, Math.PI * 2)
     ctx.fill()
     ctx.globalAlpha = 1
-    ctx.strokeStyle = '#0a1008'
-    ctx.lineWidth = 1.5
-    ctx.stroke()
+    if (isPrimary) {
+      ctx.strokeStyle = '#0a1008'
+      ctx.lineWidth = 1.5
+      ctx.stroke()
+    }
+
+    // One depth-ticket label per utility type
+    const key = g.ticketLabel || g.type
+    if (!isPrimary || labeled.has(key)) continue
+    labeled.add(key)
 
     const depth = Number(g.depth_ft ?? 0)
+    const name = (g.ticketLabel || g.type || 'UTIL').toUpperCase()
+    const offset = g.offset_ft ?? 0
     const side =
-      g.label?.includes(' R') || g.label?.includes('+' )
-        ? 'R'
-        : g.label?.includes(' L') || /−|-\d/.test(g.label || '')
-          ? 'L'
-          : 'CL'
+      Math.abs(offset) < 0.15
+        ? 'on CL'
+        : offset > 0
+          ? `${offset.toFixed(0)} ft RIGHT`
+          : `${Math.abs(offset).toFixed(0)} ft LEFT`
+
     ctx.fillStyle = '#f2f6f0'
-    ctx.font = 'bold 12px system-ui, sans-serif'
-    ctx.fillText(`${g.type?.toUpperCase?.() || 'UTIL'}`, x + r + 4, y - 6)
+    ctx.font = 'bold 13px system-ui, sans-serif'
+    ctx.fillText(name, x + r + 4, y - 8)
     ctx.fillStyle = color
-    ctx.font = 'bold 14px ui-monospace, monospace'
-    ctx.fillText(`${depth.toFixed(1)} ft deep`, x + r + 4, y + 10)
+    ctx.font = 'bold 15px ui-monospace, monospace'
+    ctx.fillText(`${depth.toFixed(1)} ft`, x + r + 4, y + 10)
     ctx.fillStyle = '#d0d8d0'
     ctx.font = '11px system-ui, sans-serif'
-    ctx.fillText(side === 'CL' ? 'on CL' : `${side} of path`, x + r + 4, y + 24)
+    ctx.fillText(side, x + r + 4, y + 24)
   }
 
   // Drilled path on grade (as-built track)
@@ -180,7 +195,6 @@ export function renderGround(
   const loc = centerlineAt(cl, locateSta)
   const lx = sx(loc.x_ft)
   const ly = sy(loc.y_ft)
-  // puck body
   ctx.fillStyle = '#1a2430'
   ctx.beginPath()
   ctx.arc(lx, ly, 11, 0, Math.PI * 2)
@@ -210,7 +224,7 @@ export function renderGround(
   ctx.fillStyle = '#c5d4c0'
   ctx.font = '12px ui-monospace, monospace'
   ctx.fillText(
-    `WALKOVER  Rod ${state.rodIndex}/${state.rodTotal}  sta ${state.station_ft.toFixed(0)} ft  · paint + depths · head L/R of CL`,
+    `WALKOVER  Rod ${state.rodIndex}/${state.rodTotal}  sta ${state.station_ft.toFixed(0)} ft  · depth tickets · head L/R of CL`,
     pad,
     h - 10,
   )

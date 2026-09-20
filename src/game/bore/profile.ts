@@ -2,6 +2,7 @@
  * S01 profile geometry helpers — entry → hold → utilities → climb → daylight.
  * Units: feet for locator/HUD; meters internally where physics uses m.
  * Extended: curved road ROW centerline + ground locates for map paint.
+ * APWA marks prefer Bot 5 locateTickets (offsetFromCL_ft / crossesCL) when present.
  */
 import {
   sampleCenterline,
@@ -9,6 +10,7 @@ import {
   type CenterlineSample,
   type GroundLocate,
 } from './centerline'
+import { s01ApwaFromTickets } from '../levels/locateTickets'
 
 export const FT_TO_M = 0.3048
 export const M_TO_FT = 1 / FT_TO_M
@@ -31,10 +33,15 @@ export type ApwaMark = {
   type: string
   depth_ft: number
   sta_ft?: number
-  /** Lateral offset from centerline (ft): + right / − left. Offset locates teach clock 3/9. */
+  /** Lateral offset from centerline (ft): + right / − left. From offsetFromCL_ft. */
   offset_ft?: number
   clearance?: string
   role?: string
+  /** Ticket display label (GAS / WATER) */
+  label?: string
+  ticketText?: string
+  id?: string
+  crossesCL?: boolean
 }
 
 export type ProfilePlan = {
@@ -55,7 +62,56 @@ export type ProfilePlan = {
   geometry: 'curved_road_row' | 'straight'
 }
 
+function normalizeRawApwa(raw: unknown): ApwaMark | null {
+  if (!raw || typeof raw !== 'object') return null
+  const m = raw as Record<string, unknown>
+  // Bot 5 ticket fields OR legacy school apwa fields
+  const color = String(m.apwa ?? m.color ?? 'yellow')
+  const type = String(m.type ?? 'utility')
+  const depth_ft = Number(m.depth_ft ?? 4)
+  const sta_ft = m.sta_ft != null ? Number(m.sta_ft) : undefined
+  const offsetRaw =
+    m.offsetFromCL_ft != null
+      ? Number(m.offsetFromCL_ft)
+      : m.offset_ft != null
+        ? Number(m.offset_ft)
+        : undefined
+  const crossesCL =
+    typeof m.crossesCL === 'boolean'
+      ? m.crossesCL
+      : m.role === 'parallel_brief_only'
+        ? false
+        : undefined
+  const role =
+    crossesCL === false
+      ? 'parallel_brief_only'
+      : m.role != null
+        ? String(m.role)
+        : undefined
+  let clearance: string | undefined
+  if (m.clearance != null) clearance = String(m.clearance)
+  else if (typeof m.clearanceNote === 'string') {
+    const n = m.clearanceNote.toLowerCase()
+    if (n.includes('wide')) clearance = 'wide'
+    else if (n.includes('tight')) clearance = 'tight'
+  }
+  return {
+    color,
+    type,
+    depth_ft,
+    sta_ft,
+    offset_ft: offsetRaw,
+    clearance,
+    role,
+    label: m.label != null ? String(m.label) : undefined,
+    ticketText: m.ticketText != null ? String(m.ticketText) : undefined,
+    id: m.id != null ? String(m.id) : undefined,
+    crossesCL,
+  }
+}
+
 export function planFromLevel(level: {
+  id?: string
   bore?: {
     length_ft?: number
     targetDepth_ft?: number
@@ -63,22 +119,28 @@ export function planFromLevel(level: {
     exitBullseye_m?: number
   }
   apwa?: unknown[]
+  locateTickets?: unknown[]
 }): ProfilePlan {
   const length_ft = level.bore?.length_ft ?? 120
-  const apwa: ApwaMark[] = []
-  for (const raw of level.apwa ?? []) {
-    if (!raw || typeof raw !== 'object') continue
-    const m = raw as Record<string, unknown>
-    apwa.push({
-      color: String(m.color ?? 'yellow'),
-      type: String(m.type ?? 'utility'),
-      depth_ft: Number(m.depth_ft ?? 4),
-      sta_ft: m.sta_ft != null ? Number(m.sta_ft) : undefined,
-      offset_ft: m.offset_ft != null ? Number(m.offset_ft) : undefined,
-      clearance: m.clearance != null ? String(m.clearance) : undefined,
-      role: m.role != null ? String(m.role) : undefined,
-    })
+
+  // S01: Bot 5 official tickets win over any stale school apwa
+  let apwa: ApwaMark[]
+  if (level.id === 'S01') {
+    apwa = s01ApwaFromTickets()
+  } else if (level.locateTickets?.length) {
+    apwa = []
+    for (const raw of level.locateTickets) {
+      const mark = normalizeRawApwa(raw)
+      if (mark) apwa.push(mark)
+    }
+  } else {
+    apwa = []
+    for (const raw of level.apwa ?? []) {
+      const mark = normalizeRawApwa(raw)
+      if (mark) apwa.push(mark)
+    }
   }
+
   const planBase: ProfilePlan = {
     length_ft,
     targetDepth_ft: level.bore?.targetDepth_ft ?? 6,

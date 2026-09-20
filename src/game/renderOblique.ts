@@ -128,7 +128,8 @@ export function renderOblique(
   // Utilities
   for (const mark of plan.apwa) {
     const color = apwaColorHex(mark.color)
-    if (mark.role === 'parallel_brief_only') {
+    if (mark.role === 'parallel_brief_only' || mark.crossesCL === false) {
+      const lat = mark.offset_ft ?? -8
       ctx.strokeStyle = color
       ctx.lineWidth = 3
       ctx.globalAlpha = 0.75
@@ -138,8 +139,8 @@ export function renderOblique(
         if (s.sta_ft < plan.length_ft * 0.15 || s.sta_ft > plan.length_ft * 0.9)
           continue
         const rad = (s.headingDeg * Math.PI) / 180
-        const nx = Math.sin(rad) * 8
-        const ny = -Math.cos(rad) * 8
+        const nx = Math.sin(rad) * lat
+        const ny = -Math.cos(rad) * lat
         const p = project(
           s.x_ft + nx,
           s.y_ft + ny,
@@ -157,9 +158,23 @@ export function renderOblique(
       ctx.globalAlpha = 1
       ctx.fillStyle = color
       ctx.font = '9px system-ui'
-      const mid = centerlineAt(cl, plan.length_ft * 0.4)
-      const mp = project(mid.x_ft + 8, mid.y_ft, mark.depth_ft, originX, originY, scaleX, scaleY, scaleDepth)
-      ctx.fillText('WATER (parallel)', mp.x, mp.y - 6)
+      const mid = centerlineAt(cl, mark.sta_ft ?? plan.length_ft * 0.5)
+      const mp = project(
+        mid.x_ft + Math.sin((mid.headingDeg * Math.PI) / 180) * lat,
+        mid.y_ft + -Math.cos((mid.headingDeg * Math.PI) / 180) * lat,
+        mark.depth_ft,
+        originX,
+        originY,
+        scaleX,
+        scaleY,
+        scaleDepth,
+      )
+      const nm = (mark.label || mark.type).toUpperCase()
+      ctx.fillText(
+        `${nm} ${mark.depth_ft.toFixed(1)} ft (parallel L)`,
+        mp.x,
+        mp.y - 6,
+      )
       continue
     }
     const sta = mark.sta_ft ?? plan.length_ft * 0.35

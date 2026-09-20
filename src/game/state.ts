@@ -91,7 +91,7 @@ export type GameState = {
 
 export function createGameState(level: JobCard | null = null): GameState {
   const lengthFt = level?.bore?.length_ft ?? 120
-  const profile = planFromLevel(level ?? {})
+  const profile = planFromLevel(level ?? { id: LESSON1_LEVEL_ID })
   const entryPitchDeg = DEFAULT_ENTRY_PITCH_DEG
   const origin = worldFromStation(profile.centerline, 0, 0)
   const rodTotal = rodTotalFromLength(lengthFt, ROD_LENGTH_FT)

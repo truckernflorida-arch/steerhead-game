@@ -229,19 +229,24 @@ export function emitFromGameState(
 
   const apwa = state.profile.apwa.map((m) => {
     const offset = m.offset_ft ?? 0
+    const name = (m.label || m.type).toUpperCase()
     const side =
-      Math.abs(offset) < 0.15
-        ? ''
-        : offset > 0
-          ? ` · +${offset.toFixed(1)}R`
-          : ` · ${offset.toFixed(1)}L`
+      m.crossesCL === false || m.role === 'parallel_brief_only'
+        ? offset < 0
+          ? ` · ${Math.abs(offset).toFixed(0)}L parallel`
+          : ` · ${offset.toFixed(0)}R parallel`
+        : Math.abs(offset) < 0.15
+          ? ' · on CL'
+          : offset > 0
+            ? ` · +${offset.toFixed(1)}R`
+            : ` · ${offset.toFixed(1)}L`
     return {
       color: m.color,
       type: m.type,
       depth_ft: m.depth_ft,
       sta_ft: m.sta_ft,
       offset_ft: m.offset_ft,
-      label: `${m.type.toUpperCase()} · ${m.depth_ft.toFixed(1)} ft${side}`,
+      label: `${name} · ${m.depth_ft.toFixed(1)} ft${side}`,
       role: m.role,
     }
   })

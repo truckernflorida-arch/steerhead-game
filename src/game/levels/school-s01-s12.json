@@ -1,6 +1,6 @@
 {
   "campaign": "mud_plant_school",
-  "version": 3,
+  "version": 4,
   "levels": [
     {
       "id": "S01",
@@ -17,8 +17,8 @@
         "locked": true
       },
       "plantFail": "none",
-      "pass": "exit window; clear offset yellow gas with L/R clock; no utility strike; no bury/too-deep; gradeHold soft-scores; over-steer warn-only",
-      "failSentence": "Hard fails are real job fails: strike a locate (incl. the offset gas) or bury the head. Mild over-steer only warns; grade soft-scores.",
+      "pass": "exit window; gradeHold soft-scores; no utility strike (gas on CL @ 3.5 ft / water parallel L \u22128); no bury/too-deep; over-steer warn-only",
+      "failSentence": "Hard fails are real job fails: strike a locate (gas crossing CL or water if you drift left into paint) or bury the head. Mild over-steer only warns; grade soft-scores.",
       "rev": 3,
       "spineLesson": 1,
       "mapsTo": "LEARNING_CORE_LOOP.md Lesson 1",
@@ -32,37 +32,97 @@
       },
       "apwa": [
         {
+          "id": "gas_y40",
+          "apwa": "yellow",
           "color": "yellow",
           "type": "gas",
-          "depth_ft": 5.5,
+          "label": "GAS",
+          "owner": "UTIL-G",
+          "depth_ft": 3.5,
           "sta_ft": 40,
-          "offset_ft": 2.0,
-          "clearance": "wide"
+          "offsetFromCL_ft": 0,
+          "offset_ft": 0,
+          "crossesCL": true,
+          "clearance": "wide",
+          "ticketText": "YELLOW \u00b7 GAS \u00b7 3.5 ft \u00b7 sta 40 \u00b7 crosses path",
+          "clearanceNote": "wide \u2014 design \u22653 ft under / \u226518 in envelope"
         },
         {
+          "id": "water_b_parallel",
+          "apwa": "blue",
           "color": "blue",
           "type": "water",
+          "label": "WATER",
+          "owner": "UTIL-W",
           "depth_ft": 3.0,
-          "role": "parallel_brief_only"
-        },
-        {
-          "color": "orange",
-          "type": "telecom",
-          "depth_ft": 2.5,
-          "sta_ft": 75,
-          "offset_ft": 0,
-          "clearance": "wide"
+          "sta_ft": 60,
+          "offsetFromCL_ft": -8,
+          "offset_ft": -8,
+          "crossesCL": false,
+          "role": "parallel_brief_only",
+          "ticketText": "BLUE \u00b7 WATER \u00b7 3.0 ft \u00b7 parallel LEFT of CL ~8 ft",
+          "clearanceNote": "no cross \u2014 brief quiz / paint only"
         }
       ],
       "debriefChecklist": [
-        "Brief: named Dirt/light_fill + APWA yellow gas offset right (clock 9 to clear)",
+        "Brief: named Dirt/light_fill + APWA yellow gas 3.5 ft on CL @ sta 40 + blue water 3.0 ft parallel LEFT \u22128",
         "Mix: confirmed locked recipe in green band",
-        "Push: GPM+PSI green; Drill OR Push every rod; small L/R clock for offset locate",
+        "Push: GPM+PSI green; Drill OR Push every rod; hold grade under gas (\u22653 ft under)",
         "Clean: noted CleanIndex before pull (soft)",
         "Pull: product daylit in window",
         "Outcome: stated gradeHold%; named TF_* if taught-fail"
       ],
-      "geometry": "curved_road_row"
+      "geometry": "curved_road_row",
+      "locateTickets": [
+        {
+          "id": "gas_y40",
+          "apwa": "yellow",
+          "color": "yellow",
+          "type": "gas",
+          "label": "GAS",
+          "owner": "UTIL-G",
+          "depth_ft": 3.5,
+          "sta_ft": 40,
+          "offsetFromCL_ft": 0,
+          "offset_ft": 0,
+          "crossesCL": true,
+          "clearance": "wide",
+          "ticketText": "YELLOW \u00b7 GAS \u00b7 3.5 ft \u00b7 sta 40 \u00b7 crosses path",
+          "clearanceNote": "wide \u2014 design \u22653 ft under / \u226518 in envelope"
+        },
+        {
+          "id": "water_b_parallel",
+          "apwa": "blue",
+          "color": "blue",
+          "type": "water",
+          "label": "WATER",
+          "owner": "UTIL-W",
+          "depth_ft": 3.0,
+          "sta_ft": 60,
+          "offsetFromCL_ft": -8,
+          "offset_ft": -8,
+          "crossesCL": false,
+          "role": "parallel_brief_only",
+          "ticketText": "BLUE \u00b7 WATER \u00b7 3.0 ft \u00b7 parallel LEFT of CL ~8 ft",
+          "clearanceNote": "no cross \u2014 brief quiz / paint only"
+        }
+      ],
+      "viewPrimary": "walkover_plan",
+      "viewSecondary": "profile",
+      "centerline": {
+        "length_ft": 120,
+        "entry": {
+          "sta_ft": 0,
+          "x": 0,
+          "y": 0
+        },
+        "exit": {
+          "sta_ft": 120,
+          "x": 120,
+          "y": 0
+        },
+        "designDepth_ft": 6
+      }
     },
     {
       "id": "S02",
